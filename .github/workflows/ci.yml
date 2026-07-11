@@ -1,23 +1,5 @@
 name: CI
 
-# Every PR (regardless of base branch — the team stacks PRs with git-spice,
-# so a PR's base is frequently a feature branch, not main) and every push to
-# main: build, lint, unit test, BDD-test against real Postgres, and check
-# generated artifacts haven't drifted from their sources.
-#
-# Version note: the action versions below are the current major tags as of
-# writing (verified against each action's GitHub releases). golangci-lint in
-# particular moved fast: golangci-lint-action v6 (a natural guess for "the
-# current major") only drives golangci-lint v1.x, which stopped receiving
-# releases after v1.64.8 — v2.x is what `brew install golangci-lint` / the
-# installer script give you today. This workflow intentionally uses
-# golangci-lint-action v9 + golangci-lint v2 config instead of v6 + v1; see
-# the `lint` job below.
-#
-# Hardening follow-up (optional, not done here): pin every `uses:` to a full
-# commit SHA instead of a mutable major-tag (e.g. `actions/checkout@<sha> #
-# v7.0.0`) and let Dependabot/Renovate keep the SHA pins current.
-
 on:
   pull_request:
   push:
@@ -66,11 +48,6 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
-      # golangci-lint v2 (see the version note at the top of this file for
-      # why this is v9, not the v6 you'd get by guessing from the last time
-      # someone wrote this down). `.golangci.yml` at the repo root pins the
-      # linter set explicitly; golangci-lint-action installs the matching
-      # v2.x binary via the `version:` input below.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -120,15 +97,7 @@ jobs:
           retention-days: 14
 
   # ---------------------------------------------------------------------
-  # BDD acceptance suite against a real Postgres 16. tests/bdd/... is
-  # owned by a parallel task and may not have landed yet — the first step
-  # below checks for it and skips (not fails) the actual test step when
-  # it's absent, so this job stays green in the meantime.
-  #
-  # *** Once tests/bdd/ is committed, delete the guard (the "check for bdd
-  # suite" step and the `if:` on "go test -tags bdd") and let `go test
-  # -tags bdd ./tests/bdd/...` run unconditionally — it becomes a hard
-  # requirement at that point. ***
+  # BDD acceptance suite against a real Postgres 16.
   # ---------------------------------------------------------------------
   bdd:
     name: bdd
@@ -179,9 +148,7 @@ jobs:
   # Drift check for generated + committed artifacts:
   #   - openapi/openapi.yaml, emitted from api/*.tsp
   #   - db/migrations/00002_seed_birds.sql, emitted from tools/uk_birds.tsv
-  # Self-contained and independent of the other jobs — delete this job
-  # (and drop it from any future `deploy` `needs:`) if Ivan would rather
-  # not gate merges on it.
+  # Self-contained and independent of the other jobs
   # ---------------------------------------------------------------------
   generated-artifacts:
     name: generated-artifacts
