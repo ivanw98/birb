@@ -85,6 +85,12 @@ func (s *Sightings) Update(ctx context.Context, user models.User, id string, upd
 	if !sightingIDPattern.MatchString(id) {
 		return models.Sighting{}, models.ErrValidation("id must match ^sgh_[a-z0-9]{26}$")
 	}
+	if ae := s.validateClientUpdatedAt(upd.ClientUpdatedAt); ae != nil {
+		return models.Sighting{}, asBadRequest(ae)
+	}
+	if ae := validateContentLengths(upd.QuickNote, upd.Notes); ae != nil {
+		return models.Sighting{}, asBadRequest(ae)
+	}
 	if len(upd.PhotoPaths) > maxPhotoPaths {
 		return models.Sighting{}, models.ErrValidation("at most 10 photos")
 	}

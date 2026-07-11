@@ -49,6 +49,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^I set header "([^"]*)" to "([^"]*)"$`, stepSetHeader)
 	sc.Step(`^I set query param "([^"]*)" to "([^"]*)"$`, stepSetQueryParam)
 	sc.Step(`^a seeded bird is saved as "([^"]*)"$`, stepSeededBird)
+	sc.Step(`^a string of (\d+) "([^"]*)" characters is saved as "([^"]*)"$`, stepSaveRepeatedString)
 
 	// --- When: actions ---
 	sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+)$`, stepMakeCall)
@@ -147,6 +148,13 @@ func stepSeededBird(ctx context.Context, varName string) error {
 		return fmt.Errorf("select seeded bird: %w", err)
 	}
 	w.vars[varName] = id
+	return nil
+}
+
+// stepSaveRepeatedString saves count copies of s as a variable, so scenarios can build bodies that exceed a length limit without bloating the feature file.
+func stepSaveRepeatedString(ctx context.Context, count int, s, varName string) error {
+	w := worldFrom(ctx)
+	w.vars[varName] = strings.Repeat(s, count)
 	return nil
 }
 

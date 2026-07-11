@@ -107,6 +107,20 @@ func TestBatchSyncMalformedJSON(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), models.CodeBadRequest)
 }
 
+func TestBatchSyncOversizedBodyIs413(t *testing.T) {
+	// The body must be rejected on size alone, before it reaches the service.
+	m := &mockSightingSvc{batch: func(context.Context, models.User, models.BatchSyncRequest) (models.BatchSyncResponse, error) {
+		t.Error("service must not be called for an oversized body")
+		return models.BatchSyncResponse{}, nil
+	}}
+	srv := server(New(m, nil, nil, testLogger()))
+
+	big := `{"sightings":[{"quickNote":"` + strings.Repeat("x", 1<<20) + `"}]}`
+	rr := do(t, srv, http.MethodPost, "/sightings/batch", big)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rr.Code)
+	assert.Contains(t, rr.Body.String(), models.CodeBadRequest)
+}
+
 func TestBatchSyncTooLargeMapsTo400(t *testing.T) {
 	m := &mockSightingSvc{batch: func(context.Context, models.User, models.BatchSyncRequest) (models.BatchSyncResponse, error) {
 		return models.BatchSyncResponse{}, models.ErrBatchTooLarge("too many")
