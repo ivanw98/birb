@@ -43,8 +43,8 @@ func (h *Handler) Register(r chi.Router) {
 func (h *Handler) BatchSync(w http.ResponseWriter, r *http.Request) {
 	user := auth.MustUser(r.Context())
 	var req models.BatchSyncRequest
-	if err := decodeJSON(r, &req); err != nil {
-		h.renderError(w, r, models.ErrBadRequest("malformed JSON body"))
+	if err := decodeJSON(w, r, &req); err != nil {
+		h.renderError(w, r, decodeError(err))
 		return
 	}
 	resp, err := h.sightings.BatchSync(r.Context(), user, req)
@@ -83,8 +83,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var upd models.SightingUpdate
-	if err := decodeJSON(r, &upd); err != nil {
-		h.renderError(w, r, models.ErrBadRequest("malformed JSON body"))
+	if err := decodeJSON(w, r, &upd); err != nil {
+		h.renderError(w, r, decodeError(err))
 		return
 	}
 	if upd.PhotoPaths == nil {
@@ -140,9 +140,24 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 
 // --- helpers ---
 
-func decodeJSON(r *http.Request, dst any) error {
+// maxBodyBytes caps request bodies before decoding. The largest legal payload
+// (a 100-item batch with every text field at its maximum) is under 600KB, so
+// 1MiB rejects abuse without ever touching a valid request.
+const maxBodyBytes = 1 << 20
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	return dec.Decode(dst)
+}
+
+// decodeError distinguishes an oversized body (413) from malformed JSON (400).
+func decodeError(err error) error {
+	var maxErr *http.MaxBytesError
+	if errors.As(err, &maxErr) {
+		return models.Coded(http.StatusRequestEntityTooLarge, models.CodeBadRequest, "request body too large")
+	}
+	return models.ErrBadRequest("malformed JSON body")
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

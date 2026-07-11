@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -254,6 +256,69 @@ func TestUpdateInvalidID(t *testing.T) {
 	_, err := svc.Update(context.Background(), testUser(), "bogus", models.SightingUpdate{ClientUpdatedAt: fixedNow, PhotoPaths: []string{}})
 	ce := models.AsCoded(err)
 	assert.Equal(t, models.CodeValidationFailed, ce.Code)
+}
+
+func TestUpdateRejectsFutureClientUpdatedAt(t *testing.T) {
+	// A clientUpdatedAt beyond the 24h skew grace would poison last-write-wins
+	// for the row (every later edit compares stale), so the PUT must refuse it.
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{
+		ClientUpdatedAt: fixedNow.Add(25 * time.Hour),
+		PhotoPaths:      []string{},
+	})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeClientTSInFuture, ce.Code)
+	assert.Equal(t, http.StatusBadRequest, ce.HTTPStatus)
+
+	// Just inside the grace window is accepted.
+	sr := &mockSightingRepo{UpdateFn: func(_ context.Context, _, _ string, _ models.SightingUpdate) (*models.Sighting, bool, error) {
+		return &models.Sighting{ID: validSgh}, true, nil
+	}}
+	svc = newSightingSvc(sr, &mockBirdRepo{})
+	_, err = svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{
+		ClientUpdatedAt: fixedNow.Add(23 * time.Hour),
+		PhotoPaths:      []string{},
+	})
+	require.NoError(t, err)
+}
+
+func TestUpdateRejectsMissingClientUpdatedAt(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{PhotoPaths: []string{}})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeValidationFailed, ce.Code)
+	assert.Equal(t, http.StatusBadRequest, ce.HTTPStatus)
+}
+
+func TestUpdateRejectsOverlongContent(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+
+	longNotes := strings.Repeat("x", 5001)
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{
+		ClientUpdatedAt: fixedNow, Notes: &longNotes, PhotoPaths: []string{},
+	})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeValidationFailed, ce.Code)
+	assert.Equal(t, http.StatusBadRequest, ce.HTTPStatus, "must be a 400, not a DB CHECK 500")
+
+	longQuickNote := strings.Repeat("x", 281)
+	_, err = svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{
+		ClientUpdatedAt: fixedNow, QuickNote: &longQuickNote, PhotoPaths: []string{},
+	})
+	assert.Equal(t, models.CodeValidationFailed, models.AsCoded(err).Code)
+}
+
+func TestBatchSyncRejectsMissingClientUpdatedAt(t *testing.T) {
+	br := &mockBirdRepo{ExistingIDsFn: func(_ context.Context, _ []string) (map[string]struct{}, error) { return birdSet(), nil }}
+	svc := newSightingSvc(&mockSightingRepo{}, br)
+
+	item := syncItem("sgh_00000000000000000000000009")
+	item.ClientUpdatedAt = time.Time{}
+	resp, err := svc.BatchSync(context.Background(), testUser(), models.BatchSyncRequest{Sightings: []models.SightingSync{item}})
+	require.NoError(t, err)
+	require.Len(t, resp.Results, 1)
+	assert.Equal(t, models.StatusInvalid, resp.Results[0].Status)
+	assert.Equal(t, models.CodeValidationFailed, resp.Results[0].Error.Code)
 }
 
 // pad renders i as a 26-char lowercase suffix so ids match ^sgh_[a-z0-9]{26}$.

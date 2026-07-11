@@ -171,3 +171,75 @@ Feature: Updating a sighting (PUT /api/sightings/{id})
       """
     Then I should receive a 400 JSON response
     And the response field "code" should be "invalid_photo_path"
+
+  Scenario: A clientUpdatedAt far in the future is rejected, protecting last-write-wins
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_futureclock000000000000000",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z",
+            "quickNote": "honest capture"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    # If this write landed, its timestamp would outrank every later edit of the
+    # row forever (both batch and PUT would compare stale against year 2999).
+    When I make a PUT call to /api/sightings/sgh_futureclock000000000000000 with body
+      """
+      {
+        "clientUpdatedAt": "2999-01-01T00:00:00Z",
+        "quickNote": "poisoned clock",
+        "photoPaths": []
+      }
+      """
+    Then I should receive a 400 JSON response
+    And the response field "code" should be "client_updated_at_in_future"
+
+    # The row is untouched and still editable by an honest timestamp.
+    When I make a PUT call to /api/sightings/sgh_futureclock000000000000000 with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "quickNote": "still editable",
+        "photoPaths": []
+      }
+      """
+    Then I should receive a 200 JSON response
+    And the response field "quickNote" should be "still editable"
+
+  Scenario: Overlong notes are rejected as validation_failed, not a server error
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_longnotes00000000000000000",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    # 5001 chars exceeds the 5000-char notes limit; the service must reject it
+    # as a 400 before the DB CHECK constraint can turn it into a 500.
+    Given a string of 5001 "x" characters is saved as "blob"
+    When I make a PUT call to /api/sightings/sgh_longnotes00000000000000000 with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "notes": "{{ blob }}",
+        "photoPaths": []
+      }
+      """
+    Then I should receive a 400 JSON response
+    And the response field "code" should be "validation_failed"
