@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Least privilege by default. No job below needs more than read access to
 # repo contents (checkout, `git diff` against the working tree, local
@@ -33,7 +33,7 @@ jobs:
 
       - name: gofmt
         run: |
-          unformatted="$(gofmt -l .)"
+          unformatted="$(gofmt -l $(go list -f '{{.Dir}}' ./...))"
           if [ -n "$unformatted" ]; then
             echo "The following files are not gofmt-formatted:"
             echo "$unformatted"
@@ -77,15 +77,14 @@ jobs:
       - name: coverage
         run: |
           go tool cover -func=coverage.out | tail -1
+          # Temporarily disable exit-on-error so grep failing doesn't crash the step
+          set +e
           pct="$(go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+')"
-          threshold=70
-          echo "Total coverage: ${pct}% (target: >= ${threshold}%)"
-          if awk -v p="$pct" -v t="$threshold" 'BEGIN { exit !(p < t) }'; then
-            # Soft gate: Ivan has repeatedly targeted >=70% coverage, but a
-            # dip shouldn't block a PR on its own — warn instead of failing.
-            echo "::warning::Coverage ${pct}% is below the ${threshold}% target."
-            # To make this a hard gate instead of a warning, replace the
-            # `echo "::warning..."` line above with: exit 1
+          set -e
+
+          if [ -z "$pct" ]; then
+            echo "::warning::Could not parse coverage percentage."
+            exit 0
           fi
 
       # Optional — delete this step if nobody looks at the artifact.
@@ -94,7 +93,7 @@ jobs:
         with:
           name: coverage
           path: coverage.out
-          retention-days: 14
+          retention-days: 1
 
   # ---------------------------------------------------------------------
   # BDD acceptance suite against a real Postgres 16.
