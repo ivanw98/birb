@@ -1,0 +1,644 @@
+common_name	scientific_name	ebird_code
+Brent goose	Branta bernicla	brant
+Red-breasted goose	Branta ruficollis	rebgoo1
+Canada goose	Branta canadensis	cangoo
+Barnacle goose	Branta leucopsis	bargoo
+Cackling goose	Branta hutchinsii	cacgoo1
+Ross's goose	Anser rossii	rosgoo
+Snow goose	Anser caerulescens	snogoo
+Greylag goose	Anser anser	gragoo
+Taiga bean goose	Anser fabalis	taibeg1
+Pink-footed goose	Anser brachyrhynchus	pifgoo
+Tundra bean goose	Anser serrirostris	tunbeg1
+White-fronted goose	Anser albifrons	gwfgoo
+Lesser white-fronted goose	Anser erythropus	lwfgoo
+Mute swan	Cygnus olor	mutswa
+Bewick's swan	Cygnus columbianus	tunswa
+Whooper swan	Cygnus cygnus	whoswa
+Egyptian goose	Alopochen aegyptiaca	egygoo
+Shelduck	Tadorna tadorna	comshe
+Ruddy shelduck	Tadorna ferruginea	rudshe
+Mandarin duck	Aix galericulata	manduc
+Baikal teal	Sibirionetta formosa	baitea
+Garganey	Spatula querquedula	gargan
+Blue-winged teal	Spatula discors	buwtea
+Shoveler	Spatula clypeata	norsho
+Gadwall	Mareca strepera	gadwal
+Falcated duck	Mareca falcata	falduc
+Wigeon	Mareca penelope	eurwig
+American wigeon	Mareca americana	amewig
+Mallard	Anas platyrhynchos	mallar3
+Black duck	Anas rubripes	ambduc
+Pintail	Anas acuta	norpin
+Teal	Anas crecca	gnwtea
+Green-winged teal	Anas carolinensis	
+Red-crested pochard	Netta rufina	recpoc
+Canvasback	Aythya valisineria	canvas
+Redhead	Aythya americana	redhea
+Pochard	Aythya ferina	compoc
+Ferruginous duck	Aythya nyroca	ferduc
+Ring-necked duck	Aythya collaris	rinduc
+Tufted duck	Aythya fuligula	tufduc
+Scaup	Aythya marila	gresca
+Lesser scaup	Aythya affinis	lessca
+Steller's eider	Polysticta stelleri	steeid
+King eider	Somateria spectabilis	kineid
+Eider	Somateria mollissima	comeid
+Harlequin duck	Histrionicus histrionicus	harduc
+Surf scoter	Melanitta perspicillata	sursco
+Velvet scoter	Melanitta fusca	whwsco3
+White-winged scoter	Melanitta deglandi	whwsco2
+Stejneger's scoter	Melanitta stejnegeri	whwsco1
+Common scoter	Melanitta nigra	blksco1
+Black scoter	Melanitta americana	blksco2
+Long-tailed duck	Clangula hyemalis	lotduc
+Bufflehead	Bucephala albeola	buffle
+Goldeneye	Bucephala clangula	comgol
+Barrow's goldeneye	Bucephala islandica	bargol
+Smew	Mergellus albellus	smew
+Hooded merganser	Lophodytes cucullatus	hoomer
+Goosander	Mergus merganser	commer
+Red-breasted merganser	Mergus serrator	rebmer
+Ruddy duck	Oxyura jamaicensis	rudduc
+Red grouse	Lagopus scotica	wilpta1
+Ptarmigan	Lagopus muta	rocpta1
+Capercaillie	Tetrao urogallus	wescap1
+Black grouse	Lyrurus tetrix	blagro1
+Grey partridge	Perdix perdix	grypar
+Golden pheasant	Chrysolophus pictus	golphe
+Lady Amherst's pheasant	Chrysolophus amherstiae	laaphe1
+Pheasant	Phasianus colchicus	rinphe1
+Quail	Coturnix coturnix	comqua1
+Red-legged partridge	Alectoris rufa	relpar1
+Common nighthawk	Chordeiles minor	comnig
+Red-necked nightjar	Caprimulgus ruficollis	rennig1
+Nightjar	Caprimulgus europaeus	eurnig1
+Egyptian nightjar	Caprimulgus aegyptius	egynig1
+White-throated needletail	Hirundapus caudacutus	whtnee
+Chimney swift	Chaetura pelagica	chiswi
+Alpine swift	Tachymarptis melba	alpswi1
+Swift	Apus apus	comswi
+Pallid swift	Apus pallidus	palswi3
+Pacific swift	Apus pacificus	fotswi
+Little swift	Apus affinis	litswi1
+White-rumped swift	Apus caffer	whrswi1
+Great bustard	Otis tarda	grebus1
+MacQueen's bustard	Chlamydotis macqueenii	macbus1
+Little bustard	Tetrax tetrax	litbus1
+Great spotted cuckoo	Clamator glandarius	grscuc1
+Yellow-billed cuckoo	Coccyzus americanus	yebcuc
+Black-billed cuckoo	Coccyzus erythropthalmus	bkbcuc
+Cuckoo	Cuculus canorus	comcuc
+Pallas's sandgrouse	Syrrhaptes paradoxus	palsan1
+Rock dove or feral pigeon	Columba livia	rocpig
+Stock dove	Columba oenas	stodov1
+Woodpigeon	Columba palumbus	cowpig1
+Turtle dove	Streptopelia turtur	eutdov
+Oriental turtle dove	Streptopelia orientalis	ortdov
+Collared dove	Streptopelia decaocto	eucdov
+Mourning dove	Zenaida macroura	moudov
+Water rail	Rallus aquaticus	watrai1
+Corncrake	Crex crex	corcra
+Sora rail	Porzana carolina	sora
+Spotted crake	Porzana porzana	spocra1
+Moorhen	Gallinula chloropus	commoo3
+Coot	Fulica atra	eurcoo
+American coot	Fulica americana	y00475
+Allen's gallinule	Porphyrio alleni	allgal1
+American purple gallinule	Porphyrio martinicus	
+Western swamphen[115]	Porphyrio porphyrio	purswa1
+Baillon's crake	Zapornia pusilla	baicra1
+Little crake	Zapornia parva	litcra1
+Sandhill crane	Antigone canadensis	sancra
+Crane	Grus grus	comcra
+Little grebe	Tachybaptus ruficollis	litgre1
+Pied-billed grebe	Podilymbus podiceps	pibgre
+Red-necked grebe	Podiceps grisegena	rengre
+Great crested grebe	Podiceps cristatus	grcgre1
+Slavonian grebe	Podiceps auritus	horgre
+Black-necked grebe	Podiceps nigricollis	eargre
+Stone-curlew	Burhinus oedicnemus	eutkne1
+Oystercatcher	Haematopus ostralegus	euroys1
+Black-winged stilt	Himantopus himantopus	bkwsti
+Avocet	Recurvirostra avosetta	pieavo1
+Grey plover	Pluvialis squatarola	bkbplo
+Golden plover	Pluvialis apricaria	eugplo
+Pacific golden plover	Pluvialis fulva	pagplo
+American golden plover	Pluvialis dominica	amgplo
+Dotterel	Eudromias morinellus	eurdot
+Killdeer	Charadrius vociferus	killde
+Ringed plover	Charadrius hiaticula	corplo
+Semipalmated plover	Charadrius semipalmatus	semplo
+Little ringed plover	Thinornis dubius	lirplo
+Lapwing	Vanellus vanellus	norlap
+Grey-headed lapwing	Vanellus cinereus	gyhlap1
+Sociable lapwing	Vanellus gregarius	soclap1
+White-tailed lapwing	Vanellus leucurus	whtlap1
+Caspian plover	Anarhynchus asiaticus	casplo1
+Tibetan sand plover	Anarhynchus atrifrons	lessap1
+Siberian sand plover	Anarhynchus mongolus	lessap2
+Greater sand plover	Anarhynchus leschenaultii	grsplo
+Kentish plover	Anarhynchus alexandrinus	kenplo1
+Upland sandpiper	Bartramia longicauda	uplsan
+Whimbrel	Numenius phaeopus	whimbr5
+Hudsonian whimbrel	Numenius hudsonicus	whimbr3
+Little whimbrel	Numenius minutus	litcur
+Eskimo curlew	Numenius borealis	eskcur
+Curlew	Numenius arquata	eurcur
+Bar-tailed godwit	Limosa lapponica	batgod
+Black-tailed godwit	Limosa limosa	bktgod
+Hudsonian godwit	Limosa haemastica	hudgod
+Turnstone	Arenaria interpres	rudtur
+Great knot	Calidris tenuirostris	grekno
+Knot	Calidris canutus	redkno
+Ruff	Calidris pugnax	ruff
+Broad-billed sandpiper	Calidris falcinellus	brbsan
+Sharp-tailed sandpiper	Calidris acuminata	shtsan
+Stilt sandpiper	Calidris himantopus	stisan
+Curlew sandpiper	Calidris ferruginea	cursan
+Temminck's stint	Calidris temminckii	temsti
+Long-toed stint	Calidris subminuta	lotsti
+Red-necked stint	Calidris ruficollis	rensti
+Sanderling	Calidris alba	sander
+Dunlin	Calidris alpina	dunlin
+Purple sandpiper	Calidris maritima	pursan
+Baird's sandpiper	Calidris bairdii	baisan
+Little stint	Calidris minuta	litsti
+Least sandpiper	Calidris minutilla	leasan
+White-rumped sandpiper	Calidris fuscicollis	whrsan
+Buff-breasted sandpiper	Calidris subruficollis	bubsan
+Pectoral sandpiper	Calidris melanotos	pecsan
+Semipalmated sandpiper	Calidris pusilla	semsan
+Western sandpiper	Calidris mauri	wessan
+Long-billed dowitcher	Limnodromus scolopaceus	lobdow
+Short-billed dowitcher	Limnodromus griseus	shbdow
+Woodcock	Scolopax rusticola	eurwoo
+Jack snipe	Lymnocryptes minimus	jacsni
+Great snipe	Gallinago media	gresni1
+Snipe	Gallinago gallinago	comsni
+Wilson's snipe	Gallinago delicata	wilsni1
+Terek sandpiper	Xenus cinereus	tersan
+Wilson's phalarope	Phalaropus tricolor	wilpha
+Red-necked phalarope	Phalaropus lobatus	renpha
+Grey phalarope	Phalaropus fulicaria	
+Common sandpiper	Actitis hypoleucos	comsan
+Spotted sandpiper	Actitis macularius	sposan
+Green sandpiper	Tringa ochropus	grnsan
+Solitary sandpiper	Tringa solitaria	solsan
+Grey-tailed tattler	Tringa brevipes	gyttat1
+Lesser yellowlegs	Tringa flavipes	lesyel
+Redshank	Tringa totanus	comred1
+Marsh sandpiper	Tringa stagnatilis	marsan
+Wood sandpiper	Tringa glareola	woosan
+Spotted redshank	Tringa erythropus	spored
+Greenshank	Tringa nebularia	comgre
+Greater yellowlegs	Tringa melanoleuca	greyel
+Cream-coloured courser	Cursorius cursor	crccou1
+Collared pratincole	Glareola pratincola	colpra
+Oriental pratincole	Glareola maldivarum	oripra
+Black-winged pratincole	Glareola nordmanni	blwpra1
+Kittiwake	Rissa tridactyla	bklkit
+Ivory gull	Pagophila eburnea	ivogul
+Sabine's gull	Xema sabini	sabgul
+Slender-billed gull	Chroicocephalus genei	slbgul1
+Bonaparte's gull	Chroicocephalus philadelphia	bongul
+Black-headed gull	Chroicocephalus ridibundus	bkhgul
+Little gull	Hydrocoloeus minutus	litgul
+Ross's gull	Rhodostethia rosea	rosgul
+Laughing gull	Leucophaeus atricilla	laugul
+Franklin's gull	Leucophaeus pipixcan	fragul
+Audouin's gull	Ichthyaetus audouinii	audgul1
+Mediterranean gull	Ichthyaetus melanocephalus	medgul1
+Great black-headed gull	Ichthyaetus ichthyaetus	gbhgul2
+Common gull	Larus canus	mewgul
+Ring-billed gull	Larus delawarensis	ribgul
+Great black-backed gull	Larus marinus	gbbgul
+Kelp gull	Larus dominicanus	kelgul
+Glaucous-winged gull	Larus glaucescens	glwgul
+Glaucous gull	Larus hyperboreus	glagul
+Iceland gull	Larus glaucoides	y00478
+European herring gull	Larus argentatus	euhgul1
+American herring gull	Larus smithsonianus	amhgul1
+Caspian gull	Larus cachinnans	casgul2
+Yellow-legged gull	Larus michahellis	yelgul1
+Slaty-backed gull	Larus schistisagus	slbgul
+Lesser black-backed gull	Larus fuscus	lbbgul
+Gull-billed tern	Gelochelidon nilotica	gubter2
+Caspian tern	Hydroprogne caspia	caster1
+Royal tern	Thalasseus maximus	royter1
+Lesser crested tern	Thalasseus bengalensis	lecter2
+Sandwich tern	Thalasseus sandvicensis	santer1
+Cabot's tern	Thalasseus acuflavida	
+Elegant tern	Thalasseus elegans	eleter1
+Little tern	Sternula albifrons	litter1
+Least tern	Sternula antillarum	leater1
+Aleutian tern	Onychoprion aleutica	
+Bridled tern	Onychoprion anaethetus	briter1
+Sooty tern	Onychoprion fuscata	
+Roseate tern	Sterna dougallii	roster
+Common tern	Sterna hirundo	comter
+Arctic tern	Sterna paradisaea	arcter
+Forster's tern	Sterna forsteri	forter
+Whiskered tern	Chlidonias hybridus	
+White-winged black tern	Chlidonias leucopterus	whwter
+Black tern	Chlidonias niger	blkter
+South polar skua	Stercorarius maccormicki	sopsku1
+Great skua	Stercorarius skua	gresku1
+Pomarine skua	Stercorarius pomarinus	pomjae
+Arctic skua	Stercorarius parasiticus	parjae
+Long-tailed skua	Stercorarius longicaudus	lotjae
+Little auk	Alle alle	doveki
+Brünnich's guillemot	Uria lomvia	thbmur
+Common guillemot	Uria aalge	commur
+Razorbill	Alca torda	razorb
+Great auk	Pinguinus impennis	greauk
+Black guillemot	Cepphus grylle	blkgui
+Long-billed murrelet	Brachyramphus perdix	lobmur
+Ancient murrelet	Synthliboramphus antiquus	ancmur
+Puffin	Fratercula arctica	atlpuf
+Tufted puffin	Fratercula cirrhata	tufpuf
+Red-billed tropicbird	Phaethon aethereus	rebtro
+Red-throated diver	Gavia stellata	retloo
+Black-throated diver	Gavia arctica	arcloo
+Pacific diver	Gavia pacifica	pacloo
+Great northern diver	Gavia immer	comloo
+White-billed diver	Gavia adamsii	yebloo
+Wilson's storm petrel	Oceanites oceanicus	wispet
+White-faced storm petrel	Pelagodroma marina	wfspet
+Black-browed albatross	Thalassarche melanophris	bkbalb
+Atlantic yellow-nosed albatross	Thalassarche chlororhynchos	yenalb2
+Storm petrel	Hydrobates pelagicus	bripet
+Swinhoe's petrel	Hydrobates monorhis	swspet
+Leach's petrel	Hydrobates leucorhous	lcspet
+Madeiran petrel	Hydrobates castro	barpet
+Fulmar	Fulmarus glacialis	norful
+Soft-plumaged petrel	Pterodroma mollis	soppet1
+Zino's petrel	Pterodroma madeira	madpet
+Black-capped petrel	Pterodroma hasitata	bkcpet
+White-chinned petrel	Procellaria aequinoctialis	whcpet1
+Scopoli's shearwater	Calonectris diomedea	scoshe1
+Cory's shearwater	Calonectris borealis	corshe1
+Sooty shearwater	Ardenna grisea	sooshe
+Great shearwater	Ardenna gravis	greshe
+Manx shearwater	Puffinus puffinus	manshe
+Yelkouan shearwater	Puffinus yelkouan	levshe1
+Balearic shearwater	Puffinus mauretanicus	balshe1
+Barolo shearwater	Puffinus baroli	litshe1
+Black stork	Ciconia nigra	blasto1
+White stork	Ciconia ciconia	whisto1
+Ascension frigatebird	Fregata aquila	asifri1
+Magnificent frigatebird	Fregata magnificens	magfri
+Gannet	Morus bassanus	norgan
+Red-footed booby	Sula sula	refboo
+Brown booby	Sula leucogaster	brnboo
+Cormorant	Phalacrocorax carbo	grecor
+Shag	Gulosus aristotelis	eursha1
+Double-crested cormorant	Nannopterum auritum	doccor
+Glossy ibis	Plegadis falcinellus	gloibi
+Spoonbill	Platalea leucorodia	eurspo1
+Bittern	Botaurus stellaris	grebit1
+American bittern	Botaurus lentiginosus	amebit
+Least bittern	Botaurus exilis	leabit
+Little bittern	Botaurus minutus	litbit1
+Night-heron	Nycticorax nycticorax	bcnher
+Green heron	Butorides virescens	grnher
+Squacco heron	Ardeola ralloides	squher1
+Chinese pond heron	Ardeola bacchus	chpher1
+Cattle egret	Ardea ibis	categr1
+Grey heron	Ardea cinerea	graher1
+Great blue heron	Ardea herodias	grbher3
+Purple heron	Ardea purpurea	purher1
+Great white egret	Ardea alba	greegr
+Snowy egret	Egretta thula	snoegr
+Little egret	Egretta garzetta	litegr
+Dalmatian pelican	Pelecanus crispus	dalpel1
+Osprey	Pandion haliaetus	osprey
+Black-winged Kite	Elanus caeruleus	bkskit1
+Egyptian vulture	Neophron percnopterus	egyvul1
+Honey-buzzard	Pernis apivorus	euhbuz1
+Short-toed eagle	Circaetus gallicus	shteag1
+Spotted eagle	Clanga clanga	grseag1
+Booted eagle	Hieraaetus pennatus	booeag1
+Golden eagle	Aquila chrysaetos	goleag
+Sparrowhawk	Accipiter nisus	eurspa1
+Goshawk	Accipiter gentilis	
+Marsh harrier	Circus aeruginosus	wemhar1
+Hen harrier	Circus cyaneus	norhar1
+Northern harrier	Circus hudsonius	norhar2
+Pallid harrier	Circus macrourus	palhar1
+Montagu's harrier	Circus pygargus	monhar1
+Red kite	Milvus milvus	redkit1
+Black kite	Milvus migrans	blakit1
+White-tailed eagle	Haliaeetus albicilla	whteag
+Rough-legged buzzard	Buteo lagopus	rolhaw
+Buzzard	Buteo buteo	combuz1
+Long-legged Buzzard	Buteo rufinus	lolbuz1
+Western barn owl	Tyto alba	webowl1
+Tengmalm's owl	Aegolius funereus	borowl
+Little owl	Athene noctua	litowl1
+Hawk owl	Surnia ulula	nohowl
+Scops owl	Otus scops	eursco1
+Long-eared owl	Asio otus	loeowl
+Short-eared owl	Asio flammeus	sheowl
+Snowy owl	Bubo scandiacus	snoowl1
+Tawny owl	Strix aluco	tawowl1
+Eurasian hoopoe	Upupa epops	hoopoe
+European roller	Coracias garrulus	eurrol1
+Kingfisher	Alcedo atthis	comkin1
+Belted kingfisher	Megaceryle alcyon	belkin1
+Blue-cheeked bee-eater	Merops persicus	bcbeat1
+Bee-eater	Merops apiaster	eubeat1
+Wryneck	Jynx torquilla	eurwry
+Yellow-bellied sapsucker	Sphyrapicus varius	yebsap
+Lesser spotted woodpecker	Dryobates minor	leswoo1
+Great spotted woodpecker	Dendrocopos major	grswoo
+Green woodpecker	Picus viridis	eugwoo2
+Lesser kestrel	Falco naumanni	leskes1
+Kestrel	Falco tinnunculus	eurkes
+American kestrel	Falco sparverius	amekes
+Red-footed falcon	Falco vespertinus	reffal1
+Amur falcon	Falco amurensis	amufal1
+Eleonora's falcon	Falco eleonorae	elefal1
+Merlin	Falco columbarius	merlin
+Hobby	Falco subbuteo	eurhob
+Gyr falcon	Falco rusticolus	gyrfal
+Peregrine	Falco peregrinus	perfal
+Ring-necked parakeet	Psittacula krameri	rorpar
+Eastern phoebe	Sayornis phoebe	easpho
+Yellow-bellied flycatcher	Empidonax flaviventris	yebfly
+Acadian flycatcher	Empidonax virescens	acafly
+Alder flycatcher	Empidonax alnorum	aldfly
+Eastern kingbird	Tyrannus tyrannus	easkin
+Brown shrike	Lanius cristatus	brnshr
+Red-backed shrike	Lanius collurio	rebshr1
+Daurian shrike	Lanius isabellinus	isashr1
+Turkestan shrike	Lanius phoenicuroides	rutshr2
+Long-tailed shrike	Lanius schach	lotshr1
+Lesser grey shrike	Lanius minor	legshr2
+Great grey shrike	Lanius excubitor	norshr1
+Woodchat shrike	Lanius senator	wooshr1
+Masked shrike	Lanius nubicus	masshr1
+Yellow-throated vireo	Vireo flavifrons	yetvir
+Philadelphia vireo	Vireo philadelphicus	phivir
+Red-eyed vireo	Vireo olivaceus	reevir1
+Golden oriole	Oriolus oriolus	eugori2
+Jay	Garrulus glandarius	eurjay1
+Magpie	Pica pica	eurmag1
+Nutcracker	Nucifraga caryocatactes	eurnut3
+Chough	Pyrrhocorax pyrrhocorax	rebcho1
+Jackdaw	Coloeus monedula	eurjac
+Rook	Corvus frugilegus	rook1
+Carrion crow	Corvus corone	carcro1
+Hooded crow	Corvus cornix	hoocro1
+Raven	Corvus corax	comrav
+Waxwing	Bombycilla garrulus	bohwax
+Cedar waxwing	Bombycilla cedrorum	cedwax
+Coal tit	Periparus ater	coatit2
+Crested tit	Lophophanes cristatus	cretit2
+Marsh tit	Poecile palustris	martit2
+Willow tit	Poecile montana	
+Blue tit	Cyanistes caeruleus	blutit
+Great tit	Parus major	gretit1
+Penduline tit	Remiz pendulinus	euptit1
+Bearded tit	Panurus biarmicus	bearee1
+Woodlark	Lullula arborea	woolar1
+White-winged lark	Alauda leucoptera	whwlar1
+Skylark	Alauda arvensis	skylar
+Crested lark	Galerida cristata	crelar1
+Shore lark	Eremophila alpestris	horlar
+Short-toed lark	Calandrella brachydactyla	gstlar1
+Bimaculated lark	Melanocorypha bimaculata	bimlar1
+Calandra lark	Melanocorypha calandra	callar1
+Black lark	Melanocorypha yeltoniensis	blalar1
+Sand martin	Riparia riparia	banswa
+Tree swallow	Tachycineta bicolor	treswa
+Purple martin	Progne subis	purmar
+Crag martin	Ptyonoprogne rupestris	eurcrm1
+Swallow	Hirundo rustica	barswa
+House martin	Delichon urbicum	comhom1
+Red-rumped swallow	Cecropis daurica	y00621
+American cliff swallow	Petrochelidon pyrrhonota	cliswa
+Cetti's warbler	Cettia cetti	cetwar1
+Long-tailed tit	Aegithalos caudatus	lottit1
+Wood warbler	Phylloscopus sibilatrix	woowar
+Western Bonelli's warbler	Phylloscopus bonelli	webwar1
+Eastern Bonelli's warbler	Phylloscopus orientalis	eabwar1
+Hume's warbler	Phylloscopus humei	humwar1
+Yellow-browed warbler	Phylloscopus inornatus	yebwar3
+Pallas's warbler	Phylloscopus proregulus	palwar5
+Radde's warbler	Phylloscopus schwarzi	radwar1
+Sulphur-bellied warbler	Phylloscopus griseolus	subwar2
+Dusky warbler	Phylloscopus fuscatus	duswar
+Willow warbler	Phylloscopus trochilus	wlwwar
+Chiffchaff	Phylloscopus collybita	comchi1
+Iberian chiffchaff	Phylloscopus ibericus	ibechi2
+Eastern crowned warbler	Phylloscopus coronatus	eacwar1
+Green warbler	Phylloscopus nitidus	grnwar1
+Two-barred greenish warbler	Phylloscopus plumbeitarsus	grewar2
+Greenish warbler	Phylloscopus trochiloides	grewar3
+Pale-legged leaf warbler	Phylloscopus tenellipes	pllwar1
+Arctic warbler	Phylloscopus borealis	arcwar1
+Great reed warbler	Acrocephalus arundinaceus	grrwar1
+Aquatic warbler	Acrocephalus paludicola	aquwar1
+Sedge warbler	Acrocephalus schoenobaenus	sedwar1
+Paddyfield warbler	Acrocephalus agricola	padwar1
+Blyth's reed warbler	Acrocephalus dumetorum	blrwar1
+Reed warbler	Acrocephalus scirpaceus	eurwar1
+Marsh warbler	Acrocephalus palustris	marwar3
+Thick-billed warbler	Arundinax aedon	thbwar1
+Booted warbler	Iduna caligata	boowar1
+Sykes's warbler	Iduna rama	sykwar2
+Eastern olivaceous warbler	Iduna pallida	eaowar1
+Western olivaceous warbler	Iduna opaca	weowar1
+Olive-tree warbler	Hippolais olivetorum	oltwar1
+Melodious warbler	Hippolais polyglotta	melwar1
+Icterine warbler	Hippolais icterina	ictwar1
+Pallas's grasshopper warbler	Helopsaltes certhiola	pagwar1
+Lanceolated warbler	Locustella lanceolata	lanwar
+River warbler	Locustella fluviatilis	eurwar2
+Savi's warbler	Locustella luscinioides	savwar1
+Grasshopper warbler	Locustella naevia	cogwar1
+Fan-tailed warbler	Cisticola juncidis	zitcis1
+Blackcap	Sylvia atricapilla	blackc1
+Garden warbler	Sylvia borin	garwar1
+Barred warbler	Curruca nisoria	barwar1
+Lesser whitethroat	Curruca curruca	leswhi4
+Western Orphean warbler	Curucca hortensis	
+Eastern Orphean warbler	Curucca crassirostris	
+Asian desert warbler	Curruca nana	asdwar1
+Rüppell's warbler	Curruca ruppeli	ruewar1
+Sardinian warbler	Curruca melanocephala	sarwar1
+Western subalpine warbler	Curruca iberiae	subwar6
+Moltoni's subalpine warbler	Curruca subalpina	subwar8
+Eastern subalpine warbler	Curruca cantillans	easwar1
+Whitethroat	Curruca communis	grewhi1
+Spectacled warbler	Curruca conspicillata	spewar2
+Marmora's warbler	Curruca sarda	marwar1
+Dartford warbler	Curruca undata	darwar1
+Ruby-crowned kinglet	Corthylio calendula	ruckin
+Goldcrest	Regulus regulus	goldcr1
+Firecrest	Regulus ignicapillus	
+Wren	Troglodytes troglodytes	winwre4
+Red-breasted nuthatch	Sitta canadensis	rebnut
+Nuthatch	Sitta europaea	eurnut2
+Wallcreeper	Tichodroma muraria	wallcr1
+Treecreeper	Certhia familiaris	eurtre1
+Short-toed treecreeper	Certhia brachydactyla	shttre1
+Grey catbird	Dumetella carolinensis	grycat
+Northern mockingbird	Mimus polyglottos	normoc
+Brown thrasher	Toxostoma rufum	brnthr
+Rose-coloured starling	Pastor roseus	rossta2
+Starling	Sturnus vulgaris	eursta
+Varied thrush	Ixoreus naevius	varthr
+Wood thrush	Hylocichla mustelina	woothr
+Swainson's thrush	Catharus ustulatus	swathr
+Hermit thrush	Catharus guttatus	herthr
+Grey-cheeked thrush	Catharus minimus	gycthr
+Veery	Catharus fuscescens	veery
+White's thrush	Zoothera aurea	scathr2
+Siberian thrush	Geokichla sibirica	sibthr1
+Song thrush	Turdus philomelos	sonthr1
+Mistle thrush	Turdus viscivorus	misthr1
+Redwing	Turdus iliacus	redwin
+Blackbird	Turdus merula	eurbla
+Eyebrowed thrush	Turdus obscurus	eyethr
+Fieldfare	Turdus pilaris	fieldf
+Ring ouzel	Turdus torquatus	rinouz1
+Black-throated thrush	Turdus atrogularis	datthr1
+Red-throated thrush	Turdus ruficollis	retthr1
+Dusky thrush	Turdus eunomus	dusthr2
+Naumann's thrush	Turdus naumanni	dusthr1
+American robin	Turdus migratorius	amerob
+Rufous-tailed scrub robin	Cercotrichas galactotes	rutscr1
+Spotted flycatcher	Muscicapa striata	spofly1
+Asian brown flycatcher	Muscicapa dauurica	asbfly
+Robin	Erithacus rubecula	eurrob1
+Siberian blue robin	Larvivora cyanea	
+Rufous-tailed robin	Larvivora sibilans	rutrob1
+Bluethroat	Luscinia svecica	blueth
+Thrush nightingale	Luscinia luscinia	thrnig1
+Nightingale	Luscinia megarhynchos	comnig1
+White-throated robin	Irania gutturalis	whtrob3
+Siberian rubythroat	Calliope calliope	sibrub
+Red-flanked bluetail	Tarsiger cyanurus	refblu1
+Taiga flycatcher	Ficedula albicilla	taifly1
+Red-breasted flycatcher	Ficedula parva	rebfly
+Pied flycatcher	Ficedula hypoleuca	eupfly1
+Collared flycatcher	Ficedula albicollis	colfly1
+Black redstart	Phoenicurus ochruros	blared1
+Redstart	Phoenicurus phoenicurus	comred2
+Moussier's redstart	Phoenicurus moussieri	moured1
+Rock thrush	Monticola saxatilis	rtrthr1
+Blue rock thrush	Monticola solitarius	burthr
+Whinchat	Saxicola rubetra	whinch1
+Stonechat	Saxicola rubicola	stonec4
+Siberian stonechat	Saxicola maurus	sibsto1
+Stejneger's stonechat	Saxicola stejnegeri	stonec7
+Wheatear	Oenanthe oenanthe	norwhe
+Isabelline wheatear	Oenanthe isabellina	isawhe1
+Desert wheatear	Oenanthe deserti	deswhe1
+Western black-eared wheatear	Oenanthe hispanica	bkewhe1
+Eastern black-eared wheatear	Oenanthe melanoleuca	bkewhe2
+Pied wheatear	Oenanthe pleschanka	piewhe1
+White-crowned black wheatear	Oenanthe leucopyga	whtwhe1
+Dipper	Cinclus cinclus	whtdip1
+Rock sparrow	Petronia petronia	rocpet1
+Tree sparrow	Passer montanus	eutspa
+Spanish sparrow	Passer hispaniolensis	spaspa1
+House sparrow	Passer domesticus	houspa
+Alpine accentor	Prunella collaris	alpacc1
+Siberian accentor	Prunella montanella	sibacc
+Dunnock	Prunella modularis	dunnoc1
+Yellow wagtail	Motacilla flava	eaywag1
+Eastern yellow wagtail	Motacilla tschutschensis	eaywag
+Citrine wagtail	Motacilla citreola	citwag
+Grey wagtail	Motacilla cinerea	grywag
+Pied wagtail	Motacilla alba	whiwag
+Richard's pipit	Anthus richardi	ricpip1
+Blyth's pipit	Anthus godlewskii	blypip1
+Tawny pipit	Anthus campestris	tawpip1
+Meadow pipit	Anthus pratensis	meapip1
+Tree pipit	Anthus trivialis	trepip
+Olive-backed pipit	Anthus hodgsoni	olbpip
+Pechora pipit	Anthus gustavi	pecpip
+Red-throated pipit	Anthus cervinus	retpip
+Buff-bellied pipit	Anthus rubescens	amepip
+Water pipit	Anthus spinoletta	watpip1
+Rock pipit	Anthus petrosus	rocpip1
+Chaffinch	Fringilla coelebs	comcha
+Brambling	Fringilla montifringilla	brambl
+Evening grosbeak	Hesperiphona vespertina	evegro
+Hawfinch	Coccothraustes coccothraustes	hawfin
+Pine grosbeak	Pinicola enucleator	pingro
+Bullfinch	Pyrrhula pyrrhula	eurbul
+Trumpeter finch	Bucanetes githagineus	trufin2
+Common rosefinch	Carpodacus erythrinus	comros
+Greenfinch	Chloris chloris	eurgre1
+Twite	Linaria flavirostris	twite1
+Linnet	Linaria cannabina	eurlin1
+Common redpoll	Acanthis flammea	redpol1
+Lesser redpoll	Acanthis cabaret	
+Arctic redpoll	Acanthis hornemanni	
+Parrot crossbill	Loxia pytyopsittacus	parcro2
+Scottish crossbill	Loxia scotica	scocro1
+Common crossbill	Loxia curvirostra	redcro
+Two-barred crossbill	Loxia leucoptera	whwcro
+Goldfinch	Carduelis carduelis	eurgol
+Citril finch	Carduelis citrinella	citfin1
+Serin	Serinus serinus	eurser1
+Siskin	Spinus spinus	eursis
+Lapland bunting	Calcarius lapponicus	laplon
+Snow bunting	Plectrophenax nivalis	snobun
+Corn bunting	Emberiza calandra	corbun1
+Yellowhammer	Emberiza citrinella	yellow2
+Pine bunting	Emberiza leucocephalos	pinbun
+Rock bunting	Emberiza cia	rocbun1
+Ortolan bunting	Emberiza hortulana	ortbun1
+Cretzschmar's bunting	Emberiza caesia	crebun2
+Cirl bunting	Emberiza cirlus	cirbun1
+Chestnut-eared bunting	Emberiza fucata	chebun2
+Little bunting	Emberiza pusilla	litbun
+Yellow-browed bunting	Emberiza chrysophrys	yebbun1
+Rustic bunting	Emberiza rustica	rusbun
+Yellow-breasted bunting	Emberiza aureola	yebbun
+Chestnut bunting	Emberiza rutila	chebun1
+Black-headed bunting	Emberiza melanocephala	blhbun1
+Red-headed bunting	Emberiza bruniceps	rehbun1
+Black-faced bunting	Emberiza spodocephala	bkfbun1
+Pallas's reed bunting	Emberiza pallasi	palbun
+Reed bunting	Emberiza schoeniclus	reebun
+Lark sparrow	Chondestes grammacus	larspa
+Dark-eyed junco	Junco hyemalis	daejun
+White-crowned sparrow	Zonotrichia leucophrys	whcspa
+White-throated sparrow	Zonotrichia albicollis	whtspa
+Savannah sparrow	Passerculus sandwichensis	savspa
+Song sparrow	Melospiza melodia	sonspa
+Eastern towhee	Pipilo erythrophthalmus	eastow
+Bobolink	Dolichonyx oryzivorus	boboli
+Baltimore oriole	Icterus galbula	balori
+Red-winged blackbird	Agelaius phoeniceus	rewbla
+Brown-headed cowbird	Molothrus ater	bnhcow
+Ovenbird	Seiurus aurocapilla	ovenbi1
+Northern waterthrush	Parkesia noveboracensis	norwat
+Golden-winged warbler	Vermivora chrysoptera	gowwar
+Black-and-white warbler	Mniotilta varia	bawwar
+Tennessee warbler	Leiothlypis peregrina	tenwar
+Common yellowthroat	Geothlypis trichas	comyel
+Hooded warbler	Setophaga citrina	hoowar
+American redstart	Setophaga ruticilla	amered
+Cape May warbler	Setophaga tigrina	camwar
+Northern parula	Setophaga americana	norpar
+Magnolia warbler	Setophaga magnolia	magwar
+Bay-breasted warbler	Setophaga castanea	babwar
+Blackburnian warbler	Setophaga fusca	bkbwar
+Yellow warbler	Setophaga petechia	manwar1
+Chestnut-sided warbler	Setophaga pensylvanica	chswar
+Blackpoll warbler	Setophaga striata	bkpwar
+Yellow-rumped warbler	Setophaga coronata	yerwar
+Canada warbler	Cardellina canadensis	canwar
+Wilson's warbler	Cardellina pusilla	wlswar
+Summer tanager	Piranga rubra	sumtan
+Scarlet tanager	Piranga olivacea	scatan
+Rose-breasted grosbeak	Pheucticus ludovicianus	robgro
+Indigo bunting	Passerina cyanea	indbun
+Fea's petrel	Pterodroma feae	feapet3

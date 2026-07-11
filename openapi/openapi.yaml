@@ -1,0 +1,439 @@
+openapi: 3.1.0
+info:
+  title: birb API
+  version: 0.1.0
+  description: |-
+    birb — a mobile-first, offline-capable bird-watching API.
+
+    All endpoints require a Supabase-issued JWT in `Authorization: Bearer <token>`.
+    The Go service verifies the token against the Supabase project JWKS and
+    provisions the user record just-in-time on the first authenticated request.
+tags: []
+paths:
+  /api/birds:
+    get:
+      operationId: Birds_list
+      description: Return the full UK bird reference list. Response carries a strong ETag; changes approximately never. Supports conditional requests.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bird'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/me:
+    get:
+      operationId: Account_get
+      description: Return the caller's profile, provisioning the user record on first call. Also the client's source of truth for the current tier.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/sightings:
+    get:
+      operationId: Sightings_list
+      description: |-
+        List the caller's sightings, newest first, via keyset pagination. Pass the
+        previous response's `nextCursor` as `cursor` to page. Soft-deleted rows are
+        excluded.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Page size, 1..100. Defaults to 25 when omitted.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SightingPage'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/sightings/batch:
+    post:
+      operationId: Sightings_batchSync
+      description: |-
+        Synchronise a batch of offline-captured sightings (idempotent upsert,
+        last-write-wins on `clientUpdatedAt`). Always returns 200 for a well-formed,
+        authenticated request; per-item outcomes are in the response body. The whole
+        request is rejected only for malformed JSON or more than 100 items
+        (`batch_too_large`).
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchSyncResponse'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchSyncRequest'
+  /api/sightings/{id}:
+    put:
+      operationId: Sightings_update
+      description: |-
+        Enrich an existing sighting (full replace of the enrichable fields). Returns
+        404 if the sighting does not exist or belongs to another user. Photo paths
+        must be owned by the caller.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SightingId'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sighting'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SightingUpdate'
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `validation_failed`.
+        message:
+          type: string
+          description: Human-readable explanation. Do not parse.
+      description: Machine-readable error. `code` is a stable slug for client branching; `message` is human-readable and may change.
+    BatchItemResult:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          $ref: '#/components/schemas/SightingId'
+        status:
+          type: string
+          enum:
+            - created
+            - updated
+            - stale
+            - invalid
+          description: '`created` = inserted; `updated` = overwrote an older version; `stale` = server copy was newer, no change; `invalid` = rejected (see `error`).'
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ApiError'
+          description: Present only when `status` is `invalid`.
+      description: |-
+        Outcome for a single batch item. `created`/`updated`/`stale` are all successes
+        from the client's perspective (mark the local row synced): `stale` means the
+        server already holds an equal-or-newer version. `invalid` items must be
+        surfaced for correction and must not be blindly retried.
+    BatchSyncRequest:
+      type: object
+      required:
+        - sightings
+      properties:
+        sightings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SightingSync'
+          maxItems: 100
+      description: A batch of queued sightings to synchronise. At most 100 items; larger batches are rejected whole (`batch_too_large`) — the client chunks.
+    BatchSyncResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchItemResult'
+      description: Per-item results, one entry per submitted sighting, in request order. The overall request succeeds (HTTP 200) even when individual items are `invalid`.
+    Bird:
+      type: object
+      required:
+        - id
+        - commonName
+        - scientificName
+      properties:
+        id:
+          $ref: '#/components/schemas/BirdId'
+        commonName:
+          type: string
+          description: English common name, e.g. "Eurasian Wren".
+        scientificName:
+          type: string
+          description: Scientific (binomial) name, e.g. "Troglodytes troglodytes".
+        ebirdCode:
+          type: string
+          description: eBird/Clements species code, e.g. "wilwar". Present for interoperability; may be absent for a few rarities.
+        taxonomicOrder:
+          type: integer
+          format: int32
+          description: Taxonomic sort order (eBird taxon order). Ascending gives a conventional field-guide ordering.
+      description: A bird species in the UK reference list.
+    BirdId:
+      type: string
+      pattern: ^brd_[a-z0-9]{26}$
+      description: 'Bird (species) identifier: `brd_` + 26-char lowercase ULID. Frozen values assigned by the seed script.'
+      examples:
+        - brd_01j9z3x8k2m4n6p8r0s2t4v6w8
+    Me:
+      type: object
+      required:
+        - id
+        - email
+        - tier
+      properties:
+        id:
+          $ref: '#/components/schemas/UserId'
+        email:
+          type: string
+        displayName:
+          type: string
+        tier:
+          type: string
+          enum:
+            - free
+            - premium
+          description: Subscription tier. `free` for everyone today; the hook for future premium features and sync limits.
+      description: The authenticated caller's profile.
+    Sighting:
+      type: object
+      required:
+        - id
+        - observedAt
+        - observedAtOffsetMinutes
+        - clientUpdatedAt
+        - createdAt
+        - updatedAt
+        - photoPaths
+      properties:
+        id:
+          $ref: '#/components/schemas/SightingId'
+        observedAt:
+          type: string
+          format: date-time
+          description: Wall-clock instant the bird was observed, as reported by the capturing device (UTC). Immutable after creation.
+        observedAtOffsetMinutes:
+          type: integer
+          format: int32
+          minimum: -840
+          maximum: 840
+          description: Device UTC offset in minutes at capture time (e.g. 60 for British Summer Time, 0 for GMT). Preserves the historical local time of the observation regardless of where the record is later viewed. Range -840..840.
+        clientUpdatedAt:
+          type: string
+          format: date-time
+          description: Device wall-clock of the last local edit (UTC). Drives last-write-wins on batch sync. Set to server time by the enrichment PUT.
+        createdAt:
+          type: string
+          format: date-time
+          description: Server receipt time (UTC). Immutable; authoritative for auditing.
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          description: Server time of the last write (UTC).
+          readOnly: true
+        birdId:
+          allOf:
+            - $ref: '#/components/schemas/BirdId'
+          description: Identified species, if chosen. Null when the user only left a free-text quick note.
+        quickNote:
+          type: string
+          description: Short free-text note captured in the field, e.g. "small brown bird in reeds".
+        notes:
+          type: string
+          description: Longer notes added during enrichment back at base.
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude in decimal degrees (WGS84), -90..90. Null if the device could not obtain a fix.
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude in decimal degrees (WGS84), -180..180. Null if the device could not obtain a fix.
+        accuracyM:
+          type: number
+          format: double
+          description: Reported GPS accuracy radius in metres, if available.
+        photoPaths:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          description: Bucket-relative Supabase Storage paths of attached photos, e.g. `<auth_uid>/<sighting_id>/<file>`. The API stores paths only; the client resolves signed URLs. Max 10.
+      description: A recorded bird sighting as stored and returned by the server.
+    SightingId:
+      type: string
+      pattern: ^sgh_[a-z0-9]{26}$
+      description: 'Sighting identifier: `sgh_` + 26-char lowercase ULID. Generated on the client at capture time and used as the idempotency key for sync.'
+      examples:
+        - sgh_01j9z3x8k2m4n6p8r0s2t4v6w8
+    SightingPage:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sighting'
+        nextCursor:
+          type: string
+          description: Opaque cursor for the next page; pass back as `?cursor=`. Null means the end of the list.
+      description: A page of sightings, newest first. `nextCursor` is null on the last page.
+    SightingSync:
+      type: object
+      required:
+        - id
+        - observedAt
+        - observedAtOffsetMinutes
+        - clientUpdatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/SightingId'
+        observedAt:
+          type: string
+          format: date-time
+          description: Wall-clock instant the bird was observed (UTC). Rejected as invalid if more than 24h in the future (device clock skew).
+        observedAtOffsetMinutes:
+          type: integer
+          format: int32
+          minimum: -840
+          maximum: 840
+        clientUpdatedAt:
+          type: string
+          format: date-time
+          description: Device wall-clock of the last local edit (UTC). Also rejected if more than 24h in the future.
+        birdId:
+          $ref: '#/components/schemas/BirdId'
+        quickNote:
+          type: string
+        notes:
+          type: string
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+        accuracyM:
+          type: number
+          format: double
+        photoPaths:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          description: Photo paths, if any were already uploaded. Usually empty at capture time; photos are typically attached later via PUT.
+      description: |-
+        One sighting queued offline and pushed during sync. `id` is client-generated
+        and is the idempotency key: re-sending the same id is safe. The server performs
+        a guarded upsert — an existing row is overwritten only when the incoming
+        `clientUpdatedAt` is strictly newer than the stored one (last-write-wins),
+        so an offline correction is never lost to a stale retry.
+    SightingUpdate:
+      type: object
+      required:
+        - photoPaths
+      properties:
+        birdId:
+          $ref: '#/components/schemas/BirdId'
+        quickNote:
+          type: string
+        notes:
+          type: string
+        photoPaths:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          description: The full set of photo paths after this update. Each must belong to the caller (path prefixed with their auth uid and this sighting's id). Max 10.
+      description: The complete desired state of a sighting's enrichable fields. Sent in full on every update; omitted-and-null are equivalent (the field is cleared).
+    UserId:
+      type: string
+      pattern: ^usr_[a-z0-9]{26}$
+      description: 'User identifier: `usr_` + 26-char lowercase ULID. Generated server-side on first authenticated request.'
+      examples:
+        - usr_01j9z3x8k2m4n6p8r0s2t4v6w8
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
+servers:
+  - url: https://api.birb.example
+    description: Production
+    variables: {}
+  - url: http://localhost:8080
+    description: Local development
+    variables: {}
