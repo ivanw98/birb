@@ -1,0 +1,48 @@
+# golangci-lint configuration for birb (schema v2 — see
+# https://golangci-lint.run/docs/configuration/file/).
+#
+# CI runs this via golangci/golangci-lint-action (.github/workflows/ci.yml).
+# Local run: `golangci-lint run` from the repo root. Requires golangci-lint
+# v2.x (`brew install golangci-lint` or see the install docs above); v1.x
+# reads a different config schema and will refuse this file.
+version: "2"
+
+run:
+  timeout: 5m
+  # tests/bdd/*.go live behind `//go:build bdd` (see the bdd CI job); list the
+  # tag here too so lint actually sees that package instead of silently
+  # skipping it. No-op wherever the bdd suite isn't present yet.
+  build-tags:
+    - bdd
+
+linters:
+  # Ivan asked for at least: govet, staticcheck, errcheck, ineffassign,
+  # unused. `default: standard` happens to be exactly that set today, but
+  # pinning it explicitly means an upstream change to golangci-lint's
+  # "standard" set can't silently add or remove a linter here.
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  exclusions:
+    paths:
+      - db/migrations # generated SQL (goose migrations + gen-seed output), not Go
+      - api/node_modules # vendored JS/TS tooling for the TypeSpec build
+
+formatters:
+  # gofmt moved from `linters` to its own `formatters` section in v2.
+  enable:
+    - gofmt
+  exclusions:
+    paths:
+      - db/migrations
+      - api/node_modules
+
+issues:
+  # Show every finding in CI instead of truncating after the first N per
+  # linter / N identical — we want the full list, not a sample.
+  max-issues-per-linter: 0
+  max-same-issues: 0
