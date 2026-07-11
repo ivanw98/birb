@@ -2,7 +2,9 @@
 
 Photos are uploaded **directly from the browser** to Supabase Storage using the
 user's own JWT (supabase-js), never proxied through the Go API. The API only
-ever stores and returns bucket-relative object paths (`photo_paths`).
+ever stores and returns bucket-relative object paths (`photo_paths`), and photo
+paths are attached **only** via `PUT /api/sightings/{id}` — the batch sync
+endpoint does not accept them.
 
 These policies are **not** Goose migrations. On hosted Supabase the `postgres`
 role no longer owns `storage.objects`, so `CREATE POLICY` on it fails when run
