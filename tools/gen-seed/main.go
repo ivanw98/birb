@@ -1,11 +1,11 @@
 package main
 
-// Command gen-seed generates db/migrations/00002_seed_birds.sql from tools/uk_birds.tsv.
-// Run from the repository root: go run ./tools/gen-seed
+// Command gen-seed generates db/migrations/00002_seed_birds.sql from
+// tools/uk_birds.tsv. Run from the repository root: go run ./tools/gen-seed
 //
-// Bird IDs are frozen in the TSV so existing sightings retain referential integrity.
-// If you need to add or update birds after 00002 has been deployed, write a new migration
-// rather than regenerating this file.
+// Bird IDs are frozen in the TSV to preserve referential integrity with
+// existing sightings; once 00002 has shipped, add or change birds via a new
+// migration instead of regenerating this file.
 
 import (
 	"bufio"
@@ -49,7 +49,6 @@ func run() error {
 	seenID := make(map[string]string, len(birds))
 	seenCode := make(map[string]string, len(birds))
 
-	// Validate uniqueness to prevent Postgres constraint violations during the migration.
 	for _, b := range birds {
 		if !birdIDPattern.MatchString(b.id) {
 			return fmt.Errorf("id %q (%s) does not match %s", b.id, b.scientificName, birdIDPattern)
@@ -74,8 +73,7 @@ func run() error {
 	return nil
 }
 
-// readBirds parses the TSV (id, common_name, scientific_name, [ebird_code]).
-// The taxonomic_order is derived directly from the row position (1-based).
+// readBirds parses the TSV (id, common_name, scientific_name, [ebird_code]), deriving taxonomic_order from the row's 1-based position.
 func readBirds(path string) ([]bird, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -142,8 +140,7 @@ func renderSQL(birds []bird) string {
 		)
 	}
 
-	// DO NOTHING makes re-applying the seed a safe no-op (e.g. dump/restore)
-	// instead of crashing on primary key conflicts.
+	// DO NOTHING makes re-applying the seed a safe no-op instead of crashing on primary key conflicts.
 	b.WriteString("ON CONFLICT (id) DO NOTHING;\n")
 
 	b.WriteString("\n-- +goose Down\n")
