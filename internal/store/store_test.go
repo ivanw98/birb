@@ -20,7 +20,7 @@ func newMock(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 	return sqlx.NewDb(db, "sqlmock"), mock
 }
 
