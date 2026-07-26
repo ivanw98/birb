@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+
+/* Scope shadcn's dark: utilities to an explicit .dark ancestor class that we
+   never apply. Without this, `dark:` utilities fall back to Tailwind's
+   default (the OS prefers-color-scheme), and shadcn's generated components
+   would start silently reshuffling colors on some readers' machines and not
+   others. The charter's contrast numbers are only true for ONE theme, so we
+   pin the app to that theme on purpose. Revisit if birb wants to use a real
+   dark mode. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-sans: "Inter Variable", sans-serif;
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --radius: 0.625rem;
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply text-lg text-ink bg-white;
+    }
+}
+
+@theme {
+    --color-primary: #1e40af; /* blue-800 on white ~= 8.7:1 */
+    --color-primary-strong: #1e3a8a; /* blue-900 -- hover/pressed */
+    --color-success: #166534; /* green-800 on white ~= 7.1:1 -- AAA, but with little margin to spare */
+    --color-danger: #991b1b; /* red-800 on white ~= 8.3:1 */
+    --color-ink: #0f172a; /* slate-900 body text ~= 17.9:1 */
+    --color-muted: #334155; /* slate-700 secondary ~= 10.4:1 */
+}
+
+:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+}
