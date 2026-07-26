@@ -1,0 +1,18 @@
+{
+  "name": "@birb/api-spec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeSpec API definition for birb — compiles to openapi/openapi.yaml",
+  "type": "module",
+  "scripts": {
+    "build": "tsp compile .",
+    "watch": "tsp compile . --watch",
+    "format": "tsp format \"**/*.tsp\""
+  },
+  "dependencies": {
+    "@typespec/compiler": "^1.13.0",
+    "@typespec/http": "^1.13.0",
+    "@typespec/openapi": "^1.13.0",
+    "@typespec/openapi3": "^1.13.0"
+  }
+}
