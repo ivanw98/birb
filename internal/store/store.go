@@ -78,7 +78,7 @@ func New(db *sqlx.DB) *Store {
 func getColumns(s any) []string {
 	typ := reflect.TypeOf(s)
 
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 
