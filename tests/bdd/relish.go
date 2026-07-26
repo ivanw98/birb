@@ -115,7 +115,7 @@ func stepUserHasTier(ctx context.Context, username, tier string) error {
 	if err != nil {
 		return fmt.Errorf("provision %q via GET /api/me: %w", username, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("provision %q via GET /api/me: status %d: %s", username, resp.StatusCode, body)
@@ -213,7 +213,7 @@ func doCall(ctx context.Context, method, rawPath, rawBody string) error {
 	if err != nil {
 		return fmt.Errorf("%s %s: %w", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

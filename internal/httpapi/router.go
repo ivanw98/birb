@@ -16,7 +16,10 @@ import (
 func NewRouter(h *handler.Handler, authn *auth.Authenticator) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// No RealIP: it is deprecated (spoofable — it trusts X-Forwarded-For /
+	// X-Real-IP unconditionally) and nothing here reads the client IP. If
+	// something needs it, use middleware.ClientIPFromXFFTrustedProxies plus
+	// middleware.GetClientIP rather than mutating r.RemoteAddr.
 	r.Use(middleware.Recoverer)
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
