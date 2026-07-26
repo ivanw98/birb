@@ -23,9 +23,11 @@ profile.cov
 # Go workspace file
 go.work
 go.work.sum
+tools/devauth/dev-key.pem
 
-# env file
-.env
+# env files — every suffix, every directory. Committed examples must be opted back in.
+.env*
+!.env.example
 
 # Node / TypeSpec toolchain (api/ compiles the spec; deps are not committed)
 node_modules/
