@@ -34,6 +34,7 @@ func TestLoadOverrides(t *testing.T) {
 		"SUPABASE_JWT_AUDIENCE": "custom",
 		"DB_MAX_OPEN_CONNS":     "50",
 		"DB_MAX_IDLE_CONNS":     "10",
+		"STATIC_DIR":            "/app/web",
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "9090", cfg.Port)
@@ -41,6 +42,7 @@ func TestLoadOverrides(t *testing.T) {
 	assert.Equal(t, "https://ref.supabase.co/auth/v1", cfg.JWTIssuer)
 	assert.Equal(t, 50, cfg.MaxOpenConns)
 	assert.Equal(t, 10, cfg.MaxIdleConns)
+	assert.Equal(t, "/app/web", cfg.StaticDir)
 }
 
 func TestLoadMissingRequired(t *testing.T) {
