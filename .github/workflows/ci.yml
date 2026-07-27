@@ -1,0 +1,215 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Least privilege by default. No job below needs more than read access to
+# repo contents (checkout, `git diff` against the working tree, local
+# `go`/`npm` commands) — widen a specific job's `permissions:` block if that
+# ever changes rather than loosening this.
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------
+  # gofmt, go vet, go.mod/go.sum tidiness, golangci-lint.
+  # ---------------------------------------------------------------------
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l $(go list -f '{{.Dir}}' ./...))"
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go mod tidy (no drift)
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12
+
+  # ---------------------------------------------------------------------
+  # DB-free unit tests (excludes tests/bdd, which is behind the `bdd`
+  # build tag and needs a real Postgres — see the `bdd` job).
+  # ---------------------------------------------------------------------
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: coverage
+        run: |
+          go tool cover -func=coverage.out | tail -1
+          # Temporarily disable exit-on-error so grep failing doesn't crash the step
+          set +e
+          pct="$(go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+')"
+          set -e
+
+          if [ -z "$pct" ]; then
+            echo "::warning::Could not parse coverage percentage."
+            exit 0
+          fi
+
+      # Optional — delete this step if nobody looks at the artifact.
+      - name: upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 1
+
+  # ---------------------------------------------------------------------
+  # BDD acceptance suite against a real Postgres 16.
+  # ---------------------------------------------------------------------
+  bdd:
+    name: bdd
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: birb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      # tests/bdd's harness (tests/bdd/suite_test.go) reads this, applies
+      # the goose migrations in db/migrations/ itself, and truncates
+      # between scenarios — do not duplicate migration/truncation logic
+      # here; that would double-apply against what the harness already does.
+      BIRB_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/birb?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: check bdd suite exists
+        id: bdd-suite
+        run: |
+          if [ -d tests/bdd ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::tests/bdd does not exist yet in this checkout — skipping the BDD test step. See the comment on the bdd job above: this guard is removed once the suite is committed."
+          fi
+
+      - name: go test -tags bdd
+        if: steps.bdd-suite.outputs.present == 'true'
+        run: go test -tags bdd ./tests/bdd/...
+
+  # ---------------------------------------------------------------------
+  # Drift check for generated + committed artifacts:
+  #   - openapi/openapi.yaml, emitted from api/*.tsp
+  #   - db/migrations/00002_seed_birds.sql, emitted from tools/uk_birds.tsv
+  # Self-contained and independent of the other jobs
+  # ---------------------------------------------------------------------
+  generated-artifacts:
+    name: generated-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # api/package.json has no "engines" field to read a pinned version
+      # from, so this asks for the current Node LTS by name rather than a
+      # hardcoded number that will eventually go stale.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: compile TypeSpec
+        working-directory: api
+        run: |
+          npm ci
+          npx tsp compile .
+
+      - name: check openapi.yaml drift
+        run: git diff --exit-code openapi/openapi.yaml
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: regenerate seed migration
+        run: go run ./tools/gen-seed
+
+      - name: check seed migration drift
+        run: git diff --exit-code db/migrations/00002_seed_birds.sql
+
+  # ---------------------------------------------------------------------
+  # Continuous delivery — deliberately disabled. There is no chosen
+  # deploy target yet (the API's host is undecided; Supabase only covers
+  # the DB), so this is a skeleton, not a working job. `if: false` keeps
+  # it syntactically real (lints with actionlint, shows up in the Actions
+  # UI as skipped) while guaranteeing it never runs.
+  #
+  # TODO before enabling, all of which are follow-up decisions, not CI
+  # plumbing:
+  #   - Target platform (Fly.io / Render / ECS / Cloud Run / a VM, ...)
+  #   - How the app ships: container image + registry (which one, auth?)
+  #     or a plain build artifact/binary
+  #   - Environment(s) and their secrets (DB URL, JWT/JWKS config, etc.) —
+  #     almost certainly via a GitHub `environment:` with protection rules
+  #     (required reviewers and/or a deployment branch policy) rather than
+  #     bare repo secrets
+  #   - Whichever auth the target needs (cloud OIDC via `id-token: write`,
+  #     a registry token, ...) — do not add long-lived cloud credentials
+  #     as plain repo secrets if the target supports OIDC
+  # ---------------------------------------------------------------------
+  deploy:
+    name: deploy (disabled — no target chosen yet)
+    runs-on: ubuntu-latest
+    needs: [lint, unit, bdd]
+    # Flip on by deleting "false && " below once a target is chosen. The
+    # rest of the expression is the real gate: only main pushes, never PRs.
+    if: false && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - run: echo "deploy is a placeholder; see the TODO comment on this job"
