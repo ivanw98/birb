@@ -43,6 +43,7 @@ func TestRouterHealthzIsPublic(t *testing.T) {
 
 	resp, err := http.Get(srv.URL + "/healthz")
 	require.NoError(t, err)
+	//nolint:errcheck // best effort
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -58,6 +59,8 @@ func TestRouterAPIRequiresAuth(t *testing.T) {
 	// No Authorization header → the auth middleware rejects before the handler.
 	resp, err := http.Get(srv.URL + "/api/me")
 	require.NoError(t, err)
+
+	//nolint:errcheck // best effort
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
