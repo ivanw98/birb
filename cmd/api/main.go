@@ -24,20 +24,38 @@ import (
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	if err := run(log); err != nil {
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	var err error
+	if wantsMigrate(os.Args[1:]) {
+		err = runMigrate(ctx, log)
+	} else {
+		err = run(ctx, log)
+	}
+	if err != nil {
 		log.Error("fatal", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger) error {
+// wantsMigrate reports whether "migrate" appears anywhere in args, not just first: Fly prefixes the
+// image ENTRYPOINT to release_command, so the binary path can arrive twice.
+func wantsMigrate(args []string) bool {
+	for _, a := range args {
+		if a == "migrate" {
+			return true
+		}
+	}
+	return false
+}
+
+func run(ctx context.Context, log *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	db, err := sqlx.ConnectContext(ctx, "pgx", cfg.DatabaseURL)
 	if err != nil {
@@ -62,7 +80,7 @@ func run(log *slog.Logger) error {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(h, authn),
+		Handler:           httpapi.NewRouter(h, authn, cfg.StaticDir),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

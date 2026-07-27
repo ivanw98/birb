@@ -98,7 +98,7 @@ func newHarness(ctx context.Context, dsn string) (*harness, error) {
 	hdl := handler.New(sightingSvc, birdSvc, accountSvc, log)
 	authn := auth.NewAuthenticator(verifier, repos.Users, log)
 
-	apiSrv := httptest.NewServer(httpapi.NewRouter(hdl, authn))
+	apiSrv := httptest.NewServer(httpapi.NewRouter(hdl, authn, ""))
 
 	return &harness{
 		db:      db,

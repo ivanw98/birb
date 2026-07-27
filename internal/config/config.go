@@ -15,6 +15,7 @@ type Config struct {
 	JWKSURL         string
 	JWTIssuer       string
 	JWTAudience     string
+	StaticDir       string
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
@@ -32,6 +33,7 @@ func load(getenv func(string) string) (Config, error) {
 		JWKSURL:         getenv("SUPABASE_JWKS_URL"),
 		JWTIssuer:       getenv("SUPABASE_JWT_ISSUER"),
 		JWTAudience:     orDefault(getenv("SUPABASE_JWT_AUDIENCE"), "authenticated"),
+		StaticDir:       getenv("STATIC_DIR"),
 		MaxOpenConns:    atoiOr(getenv("DB_MAX_OPEN_CONNS"), 25),
 		MaxIdleConns:    atoiOr(getenv("DB_MAX_IDLE_CONNS"), 5),
 		ConnMaxLifetime: 30 * time.Minute,
