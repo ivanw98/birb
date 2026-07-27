@@ -38,7 +38,7 @@ func testLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard,
 func TestRouterHealthzIsPublic(t *testing.T) {
 	h := handler.New(nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
-	srv := httptest.NewServer(httpapi.NewRouter(h, authn))
+	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/healthz")
@@ -52,7 +52,7 @@ func TestRouterHealthzIsPublic(t *testing.T) {
 func TestRouterAPIRequiresAuth(t *testing.T) {
 	h := handler.New(nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
-	srv := httptest.NewServer(httpapi.NewRouter(h, authn))
+	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
 
 	// No Authorization header → the auth middleware rejects before the handler.

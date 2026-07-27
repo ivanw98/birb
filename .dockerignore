@@ -1,0 +1,10 @@
+# **/.env* keeps web/.env.local out of the builder, where Vite would bake
+# VITE_DEV_TOKEN into the bundle. The **/ prefix is required: a bare .env* only
+# matches the context root.
+.git
+**/node_modules
+**/.env*
+web/dist
+frontend-course
+api/tsp-output
+tools/devauth/dev-key.pem
