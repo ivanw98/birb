@@ -1,0 +1,29 @@
+app = 'birb'
+primary_region = 'lhr'
+
+# No [build.args] on purpose: this repo is public, and the VITE_* values name a
+# live Supabase project. `fly deploy` passes them from deploy/.env.production
+# (see DEPLOY.md Part C); the Dockerfile fails the build if either is missing.
+
+[deploy]
+  # ENTRYPOINT always runs and release_command replaces CMD, so this execs `/app/birb migrate`.
+  release_command = 'migrate'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = 'stop'
+  min_machines_running = 0
+  processes = ['app']
+
+  [[http_service.checks]]
+    method = 'GET'
+    path = '/healthz'
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'

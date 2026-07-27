@@ -38,12 +38,13 @@ func testLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard,
 func TestRouterHealthzIsPublic(t *testing.T) {
 	h := handler.New(nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
-	srv := httptest.NewServer(httpapi.NewRouter(h, authn))
+	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/healthz")
 	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
+	//nolint:errcheck // best effort
+	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "ok", string(body))
@@ -52,12 +53,14 @@ func TestRouterHealthzIsPublic(t *testing.T) {
 func TestRouterAPIRequiresAuth(t *testing.T) {
 	h := handler.New(nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
-	srv := httptest.NewServer(httpapi.NewRouter(h, authn))
+	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
 
 	// No Authorization header → the auth middleware rejects before the handler.
 	resp, err := http.Get(srv.URL + "/api/me")
 	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
+
+	//nolint:errcheck // best effort
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }

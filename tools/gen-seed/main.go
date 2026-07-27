@@ -79,7 +79,8 @@ func readBirds(path string) ([]bird, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }()
+	// //nolint:errcheck // best effort
+	defer f.Close()
 
 	var birds []bird
 	sc := bufio.NewScanner(f)
