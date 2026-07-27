@@ -66,6 +66,7 @@ func (s *BirdStore) ExistingIDs(ctx context.Context, ids []string) (map[string]s
 	if err != nil {
 		return nil, err
 	}
+	// //nolint:errcheck // best effort
 	defer rows.Close()
 	for rows.Next() {
 		var id string

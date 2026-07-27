@@ -23,6 +23,7 @@ func runMigrate(ctx context.Context, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck // best effort
 	defer db.Close()
 
 	goose.SetBaseFS(migrations.FS)

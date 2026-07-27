@@ -79,6 +79,7 @@ func readBirds(path string) ([]bird, error) {
 	if err != nil {
 		return nil, err
 	}
+	// //nolint:errcheck // best effort
 	defer f.Close()
 
 	var birds []bird
