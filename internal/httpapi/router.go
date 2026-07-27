@@ -19,7 +19,6 @@ import (
 func NewRouter(h *handler.Handler, authn *auth.Authenticator, staticDir string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	// Neither host's proxy compresses for us and the main bundle is ~1.5 MB.
 	r.Use(middleware.Compress(5))
