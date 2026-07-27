@@ -63,7 +63,6 @@ export function PhotoCapture({
         id={inputId}
         type="file"
         accept="image/*"
-        capture="environment"
         disabled={busy || disabled || atLimit}
         aria-describedby={hintId}
         onChange={(e) => void handleFiles(e)}
