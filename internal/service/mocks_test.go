@@ -9,7 +9,7 @@ import (
 
 type mockSightingRepo struct {
 	UpsertFn func(ctx context.Context, s models.Sighting) (store.UpsertOutcome, error)
-	ListFn   func(ctx context.Context, userID string, cursor *models.Cursor, limit int) ([]models.Sighting, error)
+	ListFn   func(ctx context.Context, userID string, cursor *models.Cursor, limit int, includeDeleted bool) ([]models.Sighting, error)
 	GetFn    func(ctx context.Context, id, userID string) (*models.Sighting, bool, error)
 	UpdateFn func(ctx context.Context, id, userID string, upd models.SightingUpdate) (*models.Sighting, bool, error)
 }
@@ -17,8 +17,8 @@ type mockSightingRepo struct {
 func (m *mockSightingRepo) Upsert(ctx context.Context, s models.Sighting) (store.UpsertOutcome, error) {
 	return m.UpsertFn(ctx, s)
 }
-func (m *mockSightingRepo) ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int) ([]models.Sighting, error) {
-	return m.ListFn(ctx, userID, cursor, limit)
+func (m *mockSightingRepo) ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int, includeDeleted bool) ([]models.Sighting, error) {
+	return m.ListFn(ctx, userID, cursor, limit, includeDeleted)
 }
 func (m *mockSightingRepo) GetForUser(ctx context.Context, id, userID string) (*models.Sighting, bool, error) {
 	return m.GetFn(ctx, id, userID)
