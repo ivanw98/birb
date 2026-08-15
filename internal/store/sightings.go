@@ -62,6 +62,7 @@ type sightingRow struct {
 	Longitude               *float64    `db:"longitude"`
 	AccuracyM               *float64    `db:"accuracy_m"`
 	PhotoPaths              StringArray `db:"photo_paths"`
+	DeletedAt               *time.Time  `db:"deleted_at"`
 }
 
 func (r sightingRow) toModel() models.Sighting {
@@ -84,11 +85,20 @@ func (r sightingRow) toModel() models.Sighting {
 		Longitude:               r.Longitude,
 		AccuracyM:               r.AccuracyM,
 		PhotoPaths:              paths,
+		Deleted:                 r.DeletedAt != nil,
 	}
 }
 
 // Upsert applies one batch item.
 func (s *SightingStore) Upsert(ctx context.Context, in models.Sighting) (UpsertOutcome, error) {
+	// A tombstone item stamps deleted_at; COALESCE below keeps the original
+	// delete time when a delete is replayed.
+	var deletedAt *time.Time
+	if in.Deleted {
+		now := time.Now().UTC()
+		deletedAt = &now
+	}
+
 	// Insert columns are hardcoded (not derived via getColumns) since Upsert intentionally writes only a subset of fields, excluding photo_paths and timestamps.
 	query, args, err := builder.
 		Insert(sightingsTable).
@@ -104,11 +114,15 @@ func (s *SightingStore) Upsert(ctx context.Context, in models.Sighting) (UpsertO
 			"latitude":                   in.Latitude,
 			"longitude":                  in.Longitude,
 			"accuracy_m":                 in.AccuracyM,
+			"deleted_at":                 deletedAt,
 		}).
 		Suffix(`ON CONFLICT (id) DO UPDATE
 			SET bird_id = EXCLUDED.bird_id,
 			    quick_note = EXCLUDED.quick_note,
 			    notes = EXCLUDED.notes,
+			    deleted_at = CASE WHEN EXCLUDED.deleted_at IS NOT NULL
+			                      THEN COALESCE(sightings.deleted_at, EXCLUDED.deleted_at)
+			                      ELSE NULL END,
 			    client_updated_at = EXCLUDED.client_updated_at,
 			    updated_at = now()
 			WHERE sightings.user_id = EXCLUDED.user_id
@@ -155,13 +169,14 @@ func (s *SightingStore) Upsert(ctx context.Context, in models.Sighting) (UpsertO
 }
 
 // ListByUser returns up to limit rows for the user.
-func (s *SightingStore) ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int) ([]models.Sighting, error) {
+func (s *SightingStore) ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int, includeDeleted bool) ([]models.Sighting, error) {
 	q := builder.Select(s.selectColumns...).
 		From(sightingsTable).
-		Where(sq.Eq{
-			"user_id":    userID,
-			"deleted_at": nil,
-		})
+		Where(sq.Eq{"user_id": userID})
+
+	if !includeDeleted {
+		q = q.Where(sq.Eq{"deleted_at": nil})
+	}
 
 	if cursor != nil {
 		q = q.Where("(observed_at, id) < (?, ?)", cursor.ObservedAt, cursor.ID)

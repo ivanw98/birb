@@ -14,8 +14,9 @@ import (
 type SightingService interface {
 	// BatchSync validates and applies a batch of sightings, returning a per-item result and erroring only on whole-request failures.
 	BatchSync(ctx context.Context, user models.User, req models.BatchSyncRequest) (models.BatchSyncResponse, error)
-	// List returns a page of the user's sightings, newest first.
-	List(ctx context.Context, user models.User, limit int, cursor string) (models.SightingPage, error)
+	// List returns a page of the user's sightings, newest first; includeDeleted
+	// adds tombstones (marked deleted) so multi-device clients can converge.
+	List(ctx context.Context, user models.User, limit int, cursor string, includeDeleted bool) (models.SightingPage, error)
 	// Update enriches a sighting, returning *models.StaleError on a stale write or a not-found CodedError when the row is absent or not the caller's.
 	Update(ctx context.Context, user models.User, id string, upd models.SightingUpdate) (models.Sighting, error)
 }

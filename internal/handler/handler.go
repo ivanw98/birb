@@ -69,7 +69,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		limit = n
 	}
 
-	page, err := h.sightings.List(r.Context(), user, limit, r.URL.Query().Get("cursor"))
+	includeDeleted := false
+	if raw := r.URL.Query().Get("includeDeleted"); raw != "" {
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			h.renderError(w, r, models.ErrValidation("includeDeleted must be a boolean"))
+			return
+		}
+		includeDeleted = b
+	}
+
+	page, err := h.sightings.List(r.Context(), user, limit, r.URL.Query().Get("cursor"), includeDeleted)
 	if err != nil {
 		h.renderError(w, r, err)
 		return

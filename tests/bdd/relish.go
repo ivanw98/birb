@@ -22,6 +22,14 @@ import (
 // bddNamespace roots the deterministic per-username auth-id derivation below.
 var bddNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("birb-bdd"))
 
+// Deterministic fixture rows (the DB is truncated per scenario).
+const (
+	defaultUsername     = "default_user"
+	defaultUserID       = "usr_01j9z3x8k2m4n6p8r0s2t4v6w8"
+	defaultSightingID   = "sgh_01j9z3x8k2m4n6p8r0s2t4v6w8"
+	defaultSightingTime = "2025-06-01T10:00:00Z"
+)
+
 // authIDForUsername deterministically derives a stable Supabase-style auth uid (a UUID) from a BDD username.
 func authIDForUsername(username string) string {
 	return uuid.NewSHA1(bddNamespace, []byte(username)).String()
@@ -44,12 +52,14 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^I am anonymous$`, stepIAmAnonymous)
 	sc.Step(`^I am authenticated as "([^"]*)"$`, stepIAmAuthenticatedAs)
 	sc.Step(`^the user "([^"]*)" has tier "(free|premium)"$`, stepUserHasTier)
+	sc.Step(`^the default user exists$`, stepDefaultUser)
 
 	// --- Given: request building ---
 	sc.Step(`^I set header "([^"]*)" to "([^"]*)"$`, stepSetHeader)
 	sc.Step(`^I set query param "([^"]*)" to "([^"]*)"$`, stepSetQueryParam)
 	sc.Step(`^a seeded bird is saved as "([^"]*)"$`, stepSeededBird)
 	sc.Step(`^a string of (\d+) "([^"]*)" characters is saved as "([^"]*)"$`, stepSaveRepeatedString)
+	sc.Step(`^the default sighting exists$`, stepDefaultSighting)
 
 	// --- When: actions ---
 	sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+)$`, stepMakeCall)
@@ -61,6 +71,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the response body should be$`, stepBodyExact)
 	sc.Step(`^the response body should contain$`, stepBodyContains)
 	sc.Step(`^the response field "([^"]*)" should be "([^"]*)"$`, stepField)
+	sc.Step(`^the response field "([^"]*)" should be absent$`, stepFieldAbsent)
 	sc.Step(`^the response field "([^"]*)" should match "([^"]*)"$`, stepFieldMatch)
 	sc.Step(`^the response header "([^"]*)" should be "([^"]*)"$`, stepHeaderEquals)
 	sc.Step(`^the response header "([^"]*)" should not be empty$`, stepHeaderNotEmpty)
@@ -138,6 +149,36 @@ func stepSetHeader(ctx context.Context, name, value string) error {
 func stepSetQueryParam(ctx context.Context, name, value string) error {
 	w := worldFrom(ctx)
 	w.query[name] = w.interpolate(value)
+	return nil
+}
+
+// stepDefaultUser inserts the fixture user directly; kept separate from
+// authentication so token-only auth (first-call provisioning) stays testable.
+func stepDefaultUser(ctx context.Context) error {
+	w := worldFrom(ctx)
+	if _, err := env.db.ExecContext(ctx, `
+		INSERT INTO users (id, auth_id, email)
+		VALUES ($1, $2, $3)`,
+		defaultUserID, authIDForUsername(defaultUsername), emailForUsername(defaultUsername)); err != nil {
+		return fmt.Errorf("insert default user: %w", err)
+	}
+	w.vars["default_user.id"] = defaultUserID
+	return nil
+}
+
+// stepDefaultSighting inserts the default sighting, owned by the default user.
+func stepDefaultSighting(ctx context.Context) error {
+	w := worldFrom(ctx)
+	if _, err := env.db.ExecContext(ctx, `
+		INSERT INTO sightings (id, user_id, observed_at, observed_at_offset_minutes, client_updated_at, quick_note)
+		VALUES ($1, $2, $3, 0, $3, 'default sighting')`,
+		defaultSightingID, defaultUserID, defaultSightingTime); err != nil {
+		return fmt.Errorf("insert default sighting (add 'Given the default user exists' first): %w", err)
+	}
+
+	w.vars["default_sighting.id"] = defaultSightingID
+	w.vars["default_sighting.observedAt"] = defaultSightingTime
+	w.vars["default_sighting.clientUpdatedAt"] = defaultSightingTime
 	return nil
 }
 
@@ -294,6 +335,15 @@ func stepField(ctx context.Context, path, value string) error {
 	expected := coerceExpected(w.interpolate(value))
 	if !fieldsEqual(actual, expected) {
 		return fmt.Errorf("field %q: expected %#v, got %#v", path, expected, actual)
+	}
+	return nil
+}
+
+// stepFieldAbsent asserts a dotted path is not present in the response, e.g. the omitted `deleted` field on a live sighting.
+func stepFieldAbsent(ctx context.Context, path string) error {
+	w := worldFrom(ctx)
+	if v, ok := getPath(w.json, path); ok {
+		return fmt.Errorf("field %q should be absent, got %#v: %s", path, v, string(w.body))
 	}
 	return nil
 }
