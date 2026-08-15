@@ -5,6 +5,9 @@ type Tone = "info" | "success" | "danger";
 interface StatusBannerProps {
   tone: Tone;
   children: ReactNode;
+  // Renders a standard Dismiss button. Dismissal is always an explicit user
+  // action — the charter forbids timers, not closing.
+  onDismiss?: () => void;
 }
 
 const TONE_CLASSES: Record<Tone, string> = {
@@ -19,7 +22,7 @@ const TONE_LABEL: Record<Tone, string> = {
   danger: "Problem",
 };
 
-export function StatusBanner({ tone, children }: StatusBannerProps) {
+export function StatusBanner({ tone, children, onDismiss }: StatusBannerProps) {
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
@@ -28,6 +31,15 @@ export function StatusBanner({ tone, children }: StatusBannerProps) {
     >
       <strong>{TONE_LABEL[tone]}: </strong>
       {children}
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="ml-3 h-12 rounded-md border border-slate-300 bg-white px-4 text-ink"
+        >
+          Dismiss
+        </button>
+      )}
     </div>
   );
 }

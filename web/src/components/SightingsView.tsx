@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/db/db";
+import { db, liveSightings } from "@/db/db";
+import { deleteSighting, undoDelete } from "@/lib/enrich";
 import { EnrichSighting } from "./EnrichSighting";
 import { SightingList } from "./SightingList";
 import { SightingMap } from "./SightingMap";
+import { StatusBanner } from "./StatusBanner";
 
 type SightingsMode = "list" | "map";
 
@@ -12,11 +14,19 @@ const MODES: Array<{ mode: SightingsMode; label: string }> = [
   { mode: "map", label: "Map" },
 ];
 
+// The most recent deletion, backing the persistent Undo banner. remote=true
+// means it happened on another device and was discovered via a 404.
+interface DeletedNotice {
+  id: string;
+  remote: boolean;
+}
+
 export function SightingsView() {
   const [mode, setMode] = useState<SightingsMode>("list");
   const [enrichingId, setEnrichingId] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState<DeletedNotice | null>(null);
 
-  const sightings = useLiveQuery(() => db.sightings.toArray()) ?? [];
+  const sightings = useLiveQuery(() => liveSightings()) ?? [];
   // `?? []` goes inside the memo, not on the `birds` line. While the query is
   // still undefined, a fallback literal there is a new reference every render
   // and the memo re-runs; as a dep, `Bird[] | undefined` is stable throughout.
@@ -33,6 +43,31 @@ export function SightingsView() {
 
   return (
     <div className="flex flex-col gap-4 pt-4">
+      {deleted && (
+        <div className="self-center">
+          <StatusBanner
+            tone={deleted.remote ? "info" : "success"}
+            onDismiss={() => setDeleted(null)}
+          >
+            <span>
+              {deleted.remote
+                ? "That sighting was deleted on another device."
+                : "Sighting deleted."}
+            </span>
+            <button
+              type="button"
+              className="ml-3 h-12 rounded-md bg-primary px-4 text-white"
+              onClick={() => {
+                void undoDelete(deleted.id);
+                setDeleted(null);
+              }}
+            >
+              Undo
+            </button>
+          </StatusBanner>
+        </div>
+      )}
+
       <div
         role="group"
         aria-label="Sightings view"
@@ -57,7 +92,13 @@ export function SightingsView() {
       </div>
 
       {mode === "list" ? (
-        <SightingList onOpen={setEnrichingId} />
+        <SightingList
+          onOpen={setEnrichingId}
+          onDelete={async (id) => {
+            await deleteSighting(id);
+            setDeleted({ id, remote: false });
+          }}
+        />
       ) : (
         <SightingMap sightings={sightings} birdNameFor={birdNameFor} />
       )}
@@ -66,6 +107,10 @@ export function SightingsView() {
         <EnrichSighting
           sightingId={enrichingId}
           onClose={() => setEnrichingId(null)}
+          onDeleted={(id, remote) => {
+            setEnrichingId(null);
+            setDeleted({ id, remote });
+          }}
         />
       )}
     </div>

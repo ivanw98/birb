@@ -2,7 +2,7 @@ import type { components } from "@/api/schema";
 import type { LocalSighting } from "@/types";
 import { bumpClientUpdatedAt } from "./time";
 import { db } from "@/db/db";
-import { fromWire } from "@/sync/syncEngine";
+import { fromWire, syncNow, syncSettled } from "@/sync/syncEngine";
 import { apiClient } from "@/api/client";
 
 type Sighting = components["schemas"]["Sighting"];
@@ -19,6 +19,7 @@ export type EnrichResult =
   | { outcome: "saved-offline" }
   | { outcome: "saved-online" }
   | { outcome: "conflict"; current: Sighting }
+  | { outcome: "gone" } // deleted on another device
   | { outcome: "error"; message: string };
 
 // A photo can be in one of two places, and removing it differs completely.
@@ -30,6 +31,7 @@ export type RemovePhotoResult =
   | { outcome: "removed" }
   | { outcome: "conflict" }
   | { outcome: "offline" }
+  | { outcome: "gone" } // deleted on another device
   | { outcome: "error"; message: string };
 
 // Removing a QUEUED photo is a local delete: nothing on the server knows it
@@ -82,11 +84,56 @@ export async function removePhoto(
       await db.sightings.put(fromWire(stale.current));
       return { outcome: "conflict" };
     }
+    if (response.status === 404) {
+      await adoptRemoteDeletion(row.id);
+      return { outcome: "gone" };
+    }
     return { outcome: "error", message: `remove failed: ${response.status}` };
   } catch {
     // navigator.onLine lied — we never reached the server, so nothing changed.
     return { outcome: "offline" };
   }
+}
+
+// A 404 for a row we hold as synced means it was tombstoned on another device
+// (PUT filters tombstones). Adopt that locally — the next pull would conclude
+// the same — so the row leaves the list immediately and Undo can restore it.
+async function adoptRemoteDeletion(id: string): Promise<void> {
+  await db.sightings.update(id, {
+    deleted: 1,
+    syncStatus: "synced",
+    syncError: undefined,
+  });
+}
+
+// Marks the sighting deleted locally and queues the tombstone for sync. Waits
+// out any in-flight pass first: syncPhotos' PUT re-puts the row as "synced"
+// and would silently overwrite the tombstone.
+export async function deleteSighting(id: string): Promise<void> {
+  await syncSettled();
+  const row = await db.sightings.get(id);
+  if (!row || row.deleted) return;
+  await db.sightings.update(id, {
+    deleted: 1,
+    clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
+    syncStatus: "pending",
+    syncError: undefined,
+  });
+  void syncNow();
+}
+
+// Un-deletes with a fresh clientUpdatedAt, so the resurrect wins last-write-wins
+// over the tombstone on every device. Works for remote deletions too.
+export async function undoDelete(id: string): Promise<void> {
+  const row = await db.sightings.get(id);
+  if (!row?.deleted) return;
+  await db.sightings.update(id, {
+    deleted: 0,
+    clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
+    syncStatus: "pending",
+    syncError: undefined,
+  });
+  void syncNow();
 }
 
 // Reclaims the ~200KB local cache copy. The uploaded bytes stay in Storage as
@@ -145,6 +192,10 @@ export async function saveEnrichment(
       await db.sightings.put(fromWire(stale.current));
 
       return { outcome: "conflict", current: stale.current };
+    }
+    if (response.status === 404) {
+      await adoptRemoteDeletion(row.id);
+      return { outcome: "gone" };
     }
 
     return { outcome: "error", message: `save failed: ${response.status}` };
