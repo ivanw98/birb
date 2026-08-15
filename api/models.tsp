@@ -144,6 +144,9 @@ model Sighting {
   @doc("Content field. Bucket-relative Storage paths of attached photos (added via PUT). Max 10.")
   @maxItems(10)
   photoPaths: PhotoPath[];
+
+  @doc("Present and `true` only on tombstones, which are returned only when the list was requested with `includeDeleted=true`. Omitted on live rows.")
+  deleted?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +166,9 @@ otherwise the item is reported `stale` and nothing changes. Capture fields
 later sync, so a re-send cannot mutate them. Photos are not handled here (see
 PUT). If the id exists but is owned by another user, the item is rejected
 `invalid` with code `id_conflict` — a batch never writes into another user's row.
+
+A `deleted: true` item tombstones the row under the same last-write-wins rule;
+a later item with a newer clientUpdatedAt and no `deleted` flag un-deletes it.
 """)
 model SightingSync {
   id: SightingId;
@@ -202,6 +208,9 @@ model SightingSync {
   @doc("Capture field, honoured only on create. GPS accuracy radius in metres, >= 0.")
   @minValue(0)
   accuracyM?: float64;
+
+  @doc("Tombstone flag. `true` marks the sighting deleted; omitted or `false` marks it live, so a later edit with a newer clientUpdatedAt un-deletes. Arbitrated by clientUpdatedAt like the content fields.")
+  deleted?: boolean;
 }
 
 @doc("A batch of queued sightings to synchronise. At most 100 items; larger batches are rejected whole (`batch_too_large`) — the client chunks.")
