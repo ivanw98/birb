@@ -31,13 +31,13 @@ func sightingCols() []string {
 	return []string{
 		"id", "user_id", "observed_at", "observed_at_offset_minutes", "client_updated_at",
 		"created_at", "updated_at", "bird_id", "quick_note", "notes", "latitude", "longitude",
-		"accuracy_m", "photo_paths",
+		"accuracy_m", "photo_paths", "deleted_at",
 	}
 }
 
 func sightingRowValues(id, userID string, ts time.Time) []driver.Value {
 	return []driver.Value{
-		id, userID, ts, int32(60), ts, ts, ts, nil, ptr("note"), nil, nil, nil, nil, "{}",
+		id, userID, ts, int32(60), ts, ts, ts, nil, ptr("note"), nil, nil, nil, nil, "{}", nil,
 	}
 }
 
@@ -129,6 +129,40 @@ func TestSightingUpsertCreated(t *testing.T) {
 	assert.False(t, out.Conflict)
 }
 
+// argNotNil matches any non-NULL bound parameter.
+type argNotNil struct{}
+
+func (argNotNil) Match(v driver.Value) bool { return v != nil }
+
+func TestSightingUpsertTombstoneStampsDeletedAt(t *testing.T) {
+	db, mock := newMock(t)
+	s := NewSightingStore(db)
+	// A Deleted item binds a timestamp for deleted_at instead of NULL. Args are
+	// in SetMap's sorted-key order; deleted_at is 4th.
+	mock.ExpectQuery(`INSERT INTO sightings`).
+		WithArgs(nil, nil, sqlmock.AnyArg(), argNotNil{}, "sgh_1", nil, nil, nil, sqlmock.AnyArg(), sqlmock.AnyArg(), nil, "usr_1").
+		WillReturnRows(sqlmock.NewRows([]string{"inserted"}).AddRow(true))
+
+	out, err := s.Upsert(context.Background(), models.Sighting{ID: "sgh_1", UserID: "usr_1", ClientUpdatedAt: time.Now(), Deleted: true})
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusCreated, out.Status)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSightingUpsertResurrectClausePresent(t *testing.T) {
+	db, mock := newMock(t)
+	s := NewSightingStore(db)
+	// A live item must clear deleted_at on conflict (resurrect) and keep the
+	// original delete time when a tombstone is replayed.
+	mock.ExpectQuery(`deleted_at = CASE WHEN EXCLUDED\.deleted_at IS NOT NULL\s+THEN COALESCE\(sightings\.deleted_at, EXCLUDED\.deleted_at\)\s+ELSE NULL END`).
+		WillReturnRows(sqlmock.NewRows([]string{"inserted"}).AddRow(false))
+
+	out, err := s.Upsert(context.Background(), models.Sighting{ID: "sgh_1", UserID: "usr_1", ClientUpdatedAt: time.Now()})
+	require.NoError(t, err)
+	assert.Equal(t, models.StatusUpdated, out.Status)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestSightingUpsertUpdated(t *testing.T) {
 	db, mock := newMock(t)
 	s := NewSightingStore(db)
@@ -180,7 +214,7 @@ func TestSightingListByUserWithCursor(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows(sightingCols()).
 			AddRow(sightingRowValues("sgh_1", "usr_1", now)...))
 
-	got, err := s.ListByUser(context.Background(), "usr_1", cur, 25)
+	got, err := s.ListByUser(context.Background(), "usr_1", cur, 25, false)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, "sgh_1", got[0].ID)
@@ -192,13 +226,31 @@ func TestSightingListByUserNoCursor(t *testing.T) {
 	db, mock := newMock(t)
 	s := NewSightingStore(db)
 	now := time.Now().UTC()
-	mock.ExpectQuery(`SELECT .* FROM sightings WHERE deleted_at IS NULL AND user_id`).
+	mock.ExpectQuery(`SELECT .* FROM sightings WHERE user_id = .* AND deleted_at IS NULL ORDER BY`).
 		WillReturnRows(sqlmock.NewRows(sightingCols()))
 
-	got, err := s.ListByUser(context.Background(), "usr_1", nil, 25)
+	got, err := s.ListByUser(context.Background(), "usr_1", nil, 25, false)
 	require.NoError(t, err)
 	assert.Empty(t, got)
 	_ = now
+}
+
+func TestSightingListIncludeDeleted(t *testing.T) {
+	db, mock := newMock(t)
+	s := NewSightingStore(db)
+	now := time.Now().UTC()
+
+	// No tombstone predicate, and a tombstoned row maps to Deleted=true.
+	tombstone := sightingRowValues("sgh_1", "usr_1", now)
+	tombstone[len(tombstone)-1] = now
+	mock.ExpectQuery(`SELECT .* FROM sightings WHERE user_id = \$1 ORDER BY`).
+		WillReturnRows(sqlmock.NewRows(sightingCols()).AddRow(tombstone...))
+
+	got, err := s.ListByUser(context.Background(), "usr_1", nil, 25, true)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.True(t, got[0].Deleted)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 // --- SightingStore.GetForUser ---

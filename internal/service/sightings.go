@@ -49,7 +49,7 @@ func (s *Sightings) BatchSync(ctx context.Context, user models.User, req models.
 }
 
 // List returns a page of the user's sightings using keyset pagination, fetching one extra row to detect a next page.
-func (s *Sightings) List(ctx context.Context, user models.User, limit int, cursor string) (models.SightingPage, error) {
+func (s *Sightings) List(ctx context.Context, user models.User, limit int, cursor string, includeDeleted bool) (models.SightingPage, error) {
 	limit = clampLimit(limit)
 
 	var cur *models.Cursor
@@ -61,7 +61,7 @@ func (s *Sightings) List(ctx context.Context, user models.User, limit int, curso
 		cur = &c
 	}
 
-	rows, err := s.sightings.ListByUser(ctx, user.ID, cur, limit+1)
+	rows, err := s.sightings.ListByUser(ctx, user.ID, cur, limit+1, includeDeleted)
 	if err != nil {
 		return models.SightingPage{}, err
 	}
@@ -174,5 +174,6 @@ func toSighting(userID string, item models.SightingSync) models.Sighting {
 		Latitude:                item.Latitude,
 		Longitude:               item.Longitude,
 		AccuracyM:               item.AccuracyM,
+		Deleted:                 item.Deleted,
 	}
 }
