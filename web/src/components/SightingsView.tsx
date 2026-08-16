@@ -95,8 +95,8 @@ export function SightingsView() {
         <SightingList
           onOpen={setEnrichingId}
           onDelete={async (id) => {
-            await deleteSighting(id);
-            setDeleted({ id, remote: false });
+            // false means a concurrent sync already removed this row.
+            if (await deleteSighting(id)) setDeleted({ id, remote: false });
           }}
         />
       ) : (

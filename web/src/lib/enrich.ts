@@ -106,34 +106,41 @@ async function adoptRemoteDeletion(id: string): Promise<void> {
   });
 }
 
-// Marks the sighting deleted locally and queues the tombstone for sync. Waits
-// out any in-flight pass first: syncPhotos' PUT re-puts the row as "synced"
-// and would silently overwrite the tombstone.
-export async function deleteSighting(id: string): Promise<void> {
+// Waits out any in-flight sync pass first (its PUT would overwrite the
+// tombstone), then get+update run in one transaction so a concurrent hard-delete can't race it.
+export async function deleteSighting(id: string): Promise<boolean> {
   await syncSettled();
-  const row = await db.sightings.get(id);
-  if (!row || row.deleted) return;
-  await db.sightings.update(id, {
-    deleted: 1,
-    clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
-    syncStatus: "pending",
-    syncError: undefined,
+  const applied = await db.transaction("rw", db.sightings, async () => {
+    const row = await db.sightings.get(id);
+    if (!row || row.deleted) return false;
+    await db.sightings.update(id, {
+      deleted: 1,
+      clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
+      syncStatus: "pending",
+      syncError: undefined,
+    });
+    return true;
   });
-  void syncNow();
+  if (applied) void syncNow();
+  return applied;
 }
 
 // Un-deletes with a fresh clientUpdatedAt, so the resurrect wins last-write-wins
 // over the tombstone on every device. Works for remote deletions too.
-export async function undoDelete(id: string): Promise<void> {
-  const row = await db.sightings.get(id);
-  if (!row?.deleted) return;
-  await db.sightings.update(id, {
-    deleted: 0,
-    clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
-    syncStatus: "pending",
-    syncError: undefined,
+export async function undoDelete(id: string): Promise<boolean> {
+  const applied = await db.transaction("rw", db.sightings, async () => {
+    const row = await db.sightings.get(id);
+    if (!row?.deleted) return false;
+    await db.sightings.update(id, {
+      deleted: 0,
+      clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
+      syncStatus: "pending",
+      syncError: undefined,
+    });
+    return true;
   });
-  void syncNow();
+  if (applied) void syncNow();
+  return applied;
 }
 
 // Reclaims the ~200KB local cache copy. The uploaded bytes stay in Storage as
