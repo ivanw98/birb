@@ -35,8 +35,12 @@ export function SightingCard({
   const handleConfirmDelete = async () => {
     if (!onDelete) return;
     setDeleting(true);
-    await onDelete(sighting.id);
-    // No state reset: the row leaves liveSightings() and this card unmounts.
+    try {
+      await onDelete(sighting.id);
+      // No reset on success: the row leaves liveSightings() and this card unmounts.
+    } catch {
+      setDeleting(false);
+    }
   };
 
   return (

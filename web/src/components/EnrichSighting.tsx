@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import type { LocalSighting } from "@/types";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BirdPicker } from "./BirdPicker";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -44,6 +44,13 @@ export function EnrichSighting({
   onDeleted,
 }: EnrichSightingProps) {
   const row = useLiveQuery(() => db.sightings.get(sightingId), [sightingId]);
+
+  // Distinguishes still-loading `undefined` from a row that existed then vanished.
+  const hadRow = useRef(false);
+  useEffect(() => {
+    if (row) hadRow.current = true;
+    else if (hadRow.current) onDeleted(sightingId, true);
+  }, [row, sightingId, onDeleted]);
 
   return (
     <Dialog

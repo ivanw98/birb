@@ -86,22 +86,37 @@ export function fromWire(remote: Sighting): LocalSighting {
 
 // ---------- reconciliation - handles potential race conditions between user edits and network calls.
 
+// What to do locally with one batch item's result.
+export type ReconcileAction =
+  { kind: "patch"; patch: Partial<LocalSighting> } | { kind: "purge" };
+
 // Decide the new local state for one batch item.
 export function reconcileItem(
   sent: LocalSighting,
   current: LocalSighting | undefined,
   result: BatchItemResult,
-): Partial<LocalSighting> | null {
+): ReconcileAction | null {
   // If the user edits a record while the batch HTTP request is traveling over the wire, clientUpdatedAt changes locally.
   // reconcileItem detects this mismatch and ignores the server response for that record - record stays pending.
   if (!current || current.clientUpdatedAt !== sent.clientUpdatedAt) return null;
 
   if (result.status === "invalid") {
-    // If the server rejects a row (status: "invalid"), its local status is updated to "failed" with the server's error code.
-    return { syncStatus: "failed", syncError: result.error?.code ?? "invalid" };
+    // Honor the delete intent locally instead.
+    if (sent.deleted) return { kind: "purge" };
+    // Otherwise, the server rejects a row (status: "invalid"); its local status is updated to "failed" with the server's error code.
+    return {
+      kind: "patch",
+      patch: {
+        syncStatus: "failed",
+        syncError: result.error?.code ?? "invalid",
+      },
+    };
   }
 
-  return { syncStatus: "synced", syncError: undefined };
+  return {
+    kind: "patch",
+    patch: { syncStatus: "synced", syncError: undefined },
+  };
 }
 
 // ---------- push ------------------------------------------------------------
@@ -129,19 +144,24 @@ async function pushPending(): Promise<{ pushed: number; failed: number }> {
     const sentByID = new Map(batch.map((row) => [row.id, row]));
 
     // runs an atomic local database update for every item returned
-    await db.transaction("rw", db.sightings, async () => {
+    await db.transaction("rw", db.sightings, db.photos, async () => {
       for (const result of data.results) {
         const sent = sentByID.get(result.id);
         if (!sent) continue;
 
         const current = await db.sightings.get(result.id);
-        const patch = reconcileItem(sent, current, result);
-        if (!patch) continue;
+        const action = reconcileItem(sent, current, result);
+        if (!action) continue;
 
-        if (patch.syncStatus === "failed") failed++;
+        if (action.kind === "purge") {
+          await hardDeleteLocal(result.id);
+          continue;
+        }
+
+        if (action.patch.syncStatus === "failed") failed++;
         else pushed++;
 
-        await db.sightings.update(result.id, patch);
+        await db.sightings.update(result.id, action.patch);
       }
     });
   }
