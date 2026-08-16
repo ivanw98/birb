@@ -144,6 +144,101 @@ jobs:
         run: go test -tags bdd ./tests/bdd/...
 
   # ---------------------------------------------------------------------
+  # web/ oxlint.
+  # ---------------------------------------------------------------------
+  frontend-lint:
+    name: frontend-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: oxlint
+        working-directory: web
+        run: pnpm run lint
+
+  # ---------------------------------------------------------------------
+  # web/ typecheck (tsc -b, via the build script) + production build.
+  # ---------------------------------------------------------------------
+  frontend-build:
+    name: frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm build
+        working-directory: web
+        run: pnpm run build
+
+  # ---------------------------------------------------------------------
+  # web/ Vitest suite. Guarded: frontend-course/12-testing-and-polish.md
+  # sets up Vitest and the first *.test.ts(x) files, and neither exists
+  # yet. Remove this guard once that lesson (or any minimal test) lands.
+  # ---------------------------------------------------------------------
+  frontend-test:
+    name: frontend-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: check frontend test files exist
+        id: frontend-tests
+        working-directory: web
+        run: |
+          if [ -n "$(find src -name '*.test.ts' -o -name '*.test.tsx')" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No *.test.ts(x) files under web/src yet — skipping the frontend test step. See frontend-course/12-testing-and-polish.md."
+          fi
+
+      - name: pnpm test run
+        if: steps.frontend-tests.outputs.present == 'true'
+        working-directory: web
+        run: pnpm run test run
+
+  # ---------------------------------------------------------------------
   # Drift check for generated + committed artifacts:
   #   - openapi/openapi.yaml, emitted from api/*.tsp
   #   - db/migrations/00002_seed_birds.sql, emitted from tools/uk_birds.tsv
@@ -207,7 +302,7 @@ jobs:
   deploy:
     name: deploy (disabled — no target chosen yet)
     runs-on: ubuntu-latest
-    needs: [lint, unit, bdd]
+    needs: [lint, unit, bdd, frontend-lint, frontend-build, frontend-test]
     # Flip on by deleting "false && " below once a target is chosen. The
     # rest of the expression is the real gate: only main pushes, never PRs.
     if: false && github.event_name == 'push' && github.ref == 'refs/heads/main'
