@@ -2,8 +2,8 @@ app = 'birb'
 primary_region = 'lhr'
 
 # No [build.args] on purpose: this repo is public, and the VITE_* values name a
-# live Supabase project. `fly deploy` passes them from deploy/.env.production
-# (see DEPLOY.md Part C); the Dockerfile fails the build if either is missing.
+# live Supabase project. `fly deploy` passes them as --build-arg from
+# deploy/.env.production; the Dockerfile fails the build if either is missing.
 
 [deploy]
   # ENTRYPOINT always runs and release_command replaces CMD, so this execs `/app/birb migrate`.
