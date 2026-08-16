@@ -58,7 +58,8 @@ interface Sightings {
   @doc("""
   List the caller's sightings, newest first, via keyset pagination. Pass the
   previous response's `nextCursor` as `cursor` to page. Soft-deleted rows are
-  excluded (deletion has no client-facing sync mechanism in v0.1).
+  excluded unless `includeDeleted=true`, in which case tombstones are included
+  with `deleted: true` so multi-device clients can converge on deletions.
   """)
   @get
   list(
@@ -71,6 +72,10 @@ interface Sightings {
     @doc("Opaque cursor from a previous page's `nextCursor`. Omit for the first page.")
     @query
     cursor?: string,
+
+    @doc("Include tombstoned sightings, marked `deleted: true`. Omitted or false = live rows only.")
+    @query
+    includeDeleted?: boolean,
   ): SightingPage | ApiError;
 
   @doc("""
