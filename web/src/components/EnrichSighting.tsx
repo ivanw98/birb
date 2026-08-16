@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import type { LocalSighting } from "@/types";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BirdPicker } from "./BirdPicker";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -32,11 +32,25 @@ const NOTES_MAX = 5000;
 export interface EnrichSightingProps {
   sightingId: string;
   onClose: () => void;
+  // Fired when a save/remove hits a 404: the sighting was deleted on another
+  // device. The parent closes the dialog and owns the Undo banner.
+  onDeleted: (id: string, remote: boolean) => void;
 }
 
 //EnrichSighting is a component whose only job is turning a sightingId into a loaded row
-export function EnrichSighting({ sightingId, onClose }: EnrichSightingProps) {
+export function EnrichSighting({
+  sightingId,
+  onClose,
+  onDeleted,
+}: EnrichSightingProps) {
   const row = useLiveQuery(() => db.sightings.get(sightingId), [sightingId]);
+
+  // Distinguishes still-loading `undefined` from a row that existed then vanished.
+  const hadRow = useRef(false);
+  useEffect(() => {
+    if (row) hadRow.current = true;
+    else if (hadRow.current) onDeleted(sightingId, true);
+  }, [row, sightingId, onDeleted]);
 
   return (
     <Dialog
@@ -55,7 +69,7 @@ export function EnrichSighting({ sightingId, onClose }: EnrichSightingProps) {
           </DialogDescription>
         </DialogHeader>
         {row ? (
-          <EnrichForm row={row} onClose={onClose} />
+          <EnrichForm row={row} onClose={onClose} onDeleted={onDeleted} />
         ) : (
           <p className="text-muted">Loading...</p>
         )}
@@ -74,9 +88,10 @@ type PhotoItem =
 interface EnrichFormProps {
   row: LocalSighting;
   onClose: () => void;
+  onDeleted: (id: string, remote: boolean) => void;
 }
 
-function EnrichForm({ row, onClose }: EnrichFormProps) {
+function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
   const [birdId, setBirdId] = useState(row.birdId);
   const [quickNote, setQuickNote] = useState(row.quickNote ?? "");
   const [notes, setNotes] = useState(row.notes ?? "");
@@ -140,6 +155,10 @@ function EnrichForm({ row, onClose }: EnrichFormProps) {
       );
       return;
     }
+    if (result.outcome === "gone") {
+      onDeleted(row.id, true);
+      return;
+    }
     setBanner(result.message);
   };
 
@@ -178,6 +197,10 @@ function EnrichForm({ row, onClose }: EnrichFormProps) {
       setBanner(
         "Updated elsewhere — showing the latest; your text is still in the form.",
       );
+      return;
+    }
+    if (result.outcome === "gone") {
+      onDeleted(row.id, true);
       return;
     }
     setBanner(result.message);

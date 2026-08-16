@@ -11,7 +11,7 @@ import { useDocumentTitle } from "./hooks/useDocumentTitle";
 import { useMe } from "./hooks/useMe";
 import { refreshBirds } from "./api/birds";
 import { db } from "./db/db";
-import { syncNow } from "./sync/syncEngine";
+import { gcSyncedTombstones, syncNow } from "./sync/syncEngine";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { ReloadPrompt } from "./components/ReloadPrompt";
 import { useAuth } from "./auth/AuthContext";
@@ -34,13 +34,16 @@ function HeaderIdentity() {
 export default function App() {
   const [view, setView] = useState<View>("record");
   const { status, session, signOut } = useAuth();
-  const { record, busy, last, saveError } = useCapture();
+  const { record, busy, last, saveError, bannerDismissed, dismissBanner } =
+    useCapture();
 
   // refreshBirds is completely static and lives entirely outside the React component lifecycle, hence no deps
   // run's on startup
   useEffect(() => {
     // keep the offline species cache warm
     void refreshBirds().catch(() => {});
+    // sweep synced tombstones — no Undo banner can exist yet on a fresh load
+    void gcSyncedTombstones();
     // app start
     void syncNow();
     // on connectivity being restored
@@ -91,6 +94,8 @@ export default function App() {
           busy={busy}
           last={last}
           saveError={saveError}
+          bannerDismissed={bannerDismissed}
+          onDismissBanner={dismissBanner}
         />
       ) : (
         <SightingsView />

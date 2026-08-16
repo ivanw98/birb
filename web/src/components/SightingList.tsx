@@ -1,6 +1,6 @@
 import { SightingCard } from "./SightingCard";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/db/db";
+import { db, liveSightings } from "@/db/db";
 import { storageEstimate } from "../lib/storage";
 import type { Bird } from "@/api/birds";
 import { useEffect, useState } from "react";
@@ -9,12 +9,11 @@ const birdFn = (bird: Bird): [string, string] => [bird.id, bird.commonName];
 
 export interface SightingListProps {
   onOpen: (id: string) => void;
+  onDelete: (id: string) => Promise<void>;
 }
 
-export function SightingList({ onOpen }: SightingListProps) {
-  const sightings = useLiveQuery(() =>
-    db.sightings.orderBy("observedAt").reverse().toArray(),
-  );
+export function SightingList({ onOpen, onDelete }: SightingListProps) {
+  const sightings = useLiveQuery(() => liveSightings());
 
   const birds = useLiveQuery(() => db.birds.toArray());
   const birdNames = new Map<string, string>((birds ?? []).map(birdFn));
@@ -52,6 +51,7 @@ export function SightingList({ onOpen }: SightingListProps) {
               sighting.birdId ? birdNames.get(sighting.birdId) : undefined
             }
             onOpen={onOpen}
+            onDelete={onDelete}
           />
         ))}
       </ul>
