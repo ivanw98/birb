@@ -46,9 +46,19 @@ export class BirbDB extends Dexie {
 
 export const db = new BirbDB();
 
+// Tombstoned rows stay in Dexie for sync (and Undo) but never render; every
+// display read goes through here.
+export function liveSightings(): Promise<LocalSighting[]> {
+  return db.sightings
+    .orderBy("observedAt")
+    .reverse()
+    .filter((s) => !s.deleted)
+    .toArray();
+}
+
 // It is not possible to write db.sightings.where("birdId").equals(birdId) as Dexie does not index birdId for sightings
 // this.version(2).stores({ sightings: "id, syncStatus, observedAt, birdId" }); needed
 export function sightingsForBird(birdID: string): Promise<LocalSighting[]> {
-  const filter = (s: LocalSighting) => s.birdId === birdID;
+  const filter = (s: LocalSighting) => !s.deleted && s.birdId === birdID;
   return db.sightings.orderBy("observedAt").reverse().filter(filter).toArray();
 }

@@ -12,6 +12,7 @@ export interface LocalSighting {
   longitude?: number;
   accuracyM?: number; // GPS fix's uncertainty radius
   photoPaths: string[]; // Storage paths the server knows about
+  deleted?: 0 | 1; // tombstone; 0|1 like LocalPhoto.uploaded in case it's ever indexed
   syncStatus: SyncStatus;
   syncError?: string;
 }

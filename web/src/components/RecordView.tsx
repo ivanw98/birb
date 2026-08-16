@@ -25,15 +25,24 @@ export interface RecordViewProps {
   busy: boolean;
   last: LocalSighting | null;
   saveError: string | null;
+  bannerDismissed: boolean;
+  onDismissBanner: () => void;
 }
 
 // Capture state is owned by App, not here. This view unmounts on every
 // navigation, and state owned locally would take the capture banner and the
 // QuickTag surface with it each time you glance at the list and come back.
 // useGeoPermission stays local: nothing outside this view reads it.
-export function RecordView({ record, busy, last, saveError }: RecordViewProps) {
+export function RecordView({
+  record,
+  busy,
+  last,
+  saveError,
+  bannerDismissed,
+  onDismissBanner,
+}: RecordViewProps) {
   const permission = useGeoPermission();
-  const banner = captureBannerFor(last);
+  const banner = bannerDismissed ? null : captureBannerFor(last);
 
   return (
     <div className="flex flex-col items-center gap-4 p-6">
@@ -45,12 +54,14 @@ export function RecordView({ record, busy, last, saveError }: RecordViewProps) {
       )}
       <h2 className="text-2xl font-semibold text-ink">Record a Sighting</h2>
       <RecordButton onRecord={record} busy={busy} />
-      {banner && <StatusBanner tone={banner.tone}>{banner.message}</StatusBanner>}
-      {/* lesson 7b: identity travels with the moment. `last` lives here, so
-          this is the mount point — QuickTag keys itself on the row id. */}
+      {banner && (
+        <StatusBanner tone={banner.tone} onDismiss={onDismissBanner}>
+          {banner.message}
+        </StatusBanner>
+      )}
       {last && <QuickTag sightingId={last.id} />}
-      {saveError && (
-        <StatusBanner tone="danger">
+      {saveError && !bannerDismissed && (
+        <StatusBanner tone="danger" onDismiss={onDismissBanner}>
           Could not save this sighting — your device may be low on storage.
           Please try again.
         </StatusBanner>

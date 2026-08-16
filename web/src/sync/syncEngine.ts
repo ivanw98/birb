@@ -60,6 +60,7 @@ function toWire(row: LocalSighting): SightingSync {
     latitude: row.latitude,
     longitude: row.longitude,
     accuracyM: row.accuracyM,
+    deleted: row.deleted ? true : undefined,
     // No photoPaths — the batch endpoint doesn't accept them (photos are attached via PUT after upload)
   };
 }
@@ -77,6 +78,7 @@ export function fromWire(remote: Sighting): LocalSighting {
     longitude: remote.longitude,
     accuracyM: remote.accuracyM,
     photoPaths: remote.photoPaths,
+    deleted: remote.deleted ? 1 : 0,
     // fromWire always sets syncStatus: "synced" – anything from the server doesn't need pushing.
     syncStatus: "synced",
   };
@@ -84,22 +86,37 @@ export function fromWire(remote: Sighting): LocalSighting {
 
 // ---------- reconciliation - handles potential race conditions between user edits and network calls.
 
+// What to do locally with one batch item's result.
+export type ReconcileAction =
+  { kind: "patch"; patch: Partial<LocalSighting> } | { kind: "purge" };
+
 // Decide the new local state for one batch item.
 export function reconcileItem(
   sent: LocalSighting,
   current: LocalSighting | undefined,
   result: BatchItemResult,
-): Partial<LocalSighting> | null {
+): ReconcileAction | null {
   // If the user edits a record while the batch HTTP request is traveling over the wire, clientUpdatedAt changes locally.
   // reconcileItem detects this mismatch and ignores the server response for that record - record stays pending.
   if (!current || current.clientUpdatedAt !== sent.clientUpdatedAt) return null;
 
   if (result.status === "invalid") {
-    // If the server rejects a row (status: "invalid"), its local status is updated to "failed" with the server's error code.
-    return { syncStatus: "failed", syncError: result.error?.code ?? "invalid" };
+    // Honor the delete intent locally instead.
+    if (sent.deleted) return { kind: "purge" };
+    // Otherwise, the server rejects a row (status: "invalid"); its local status is updated to "failed" with the server's error code.
+    return {
+      kind: "patch",
+      patch: {
+        syncStatus: "failed",
+        syncError: result.error?.code ?? "invalid",
+      },
+    };
   }
 
-  return { syncStatus: "synced", syncError: undefined };
+  return {
+    kind: "patch",
+    patch: { syncStatus: "synced", syncError: undefined },
+  };
 }
 
 // ---------- push ------------------------------------------------------------
@@ -127,19 +144,24 @@ async function pushPending(): Promise<{ pushed: number; failed: number }> {
     const sentByID = new Map(batch.map((row) => [row.id, row]));
 
     // runs an atomic local database update for every item returned
-    await db.transaction("rw", db.sightings, async () => {
+    await db.transaction("rw", db.sightings, db.photos, async () => {
       for (const result of data.results) {
         const sent = sentByID.get(result.id);
         if (!sent) continue;
 
         const current = await db.sightings.get(result.id);
-        const patch = reconcileItem(sent, current, result);
-        if (!patch) continue;
+        const action = reconcileItem(sent, current, result);
+        if (!action) continue;
 
-        if (patch.syncStatus === "failed") failed++;
+        if (action.kind === "purge") {
+          await hardDeleteLocal(result.id);
+          continue;
+        }
+
+        if (action.patch.syncStatus === "failed") failed++;
         else pushed++;
 
-        await db.sightings.update(result.id, patch);
+        await db.sightings.update(result.id, action.patch);
       }
     });
   }
@@ -149,20 +171,26 @@ async function pushPending(): Promise<{ pushed: number; failed: number }> {
 // ---------- pull ------------------------------------------------------------
 
 // Fetches server records to update the local database (for initial setup or multi-device sync).
-// Local pending/failed rows win until pushed.
+// Local pending/failed rows win until pushed. The deleted branch runs FIRST:
+// a replayed tombstone must never re-enter through the missing-row insert.
 async function pullFromServer(): Promise<void> {
+  const seen = new Set<string>();
   let cursor: string | undefined;
   do {
     const { data, response } = await apiClient.GET("/api/sightings", {
-      params: { query: { limit: 100, cursor } },
+      params: { query: { limit: 100, cursor, includeDeleted: true } },
     });
 
     if (!data) throw new Error(`pull failed: ${response.status}`);
 
-    await db.transaction("rw", db.sightings, async () => {
+    await db.transaction("rw", db.sightings, db.photos, async () => {
       for (const remoteSighting of data.items) {
+        seen.add(remoteSighting.id);
         const local = await db.sightings.get(remoteSighting.id);
-        if (!local) {
+
+        if (remoteSighting.deleted) {
+          await applyRemoteTombstone(remoteSighting, local);
+        } else if (!local) {
           // something exists on the server, but not our local instance!
           await db.sightings.put(fromWire(remoteSighting));
         } else if (
@@ -179,6 +207,63 @@ async function pullFromServer(): Promise<void> {
     // explicit null = last page
     cursor = data.nextCursor ?? undefined;
   } while (cursor);
+
+  await removeRowsGoneFromServer(seen);
+}
+
+// The deleted branch of the pull merge:
+// - no local copy → nothing to remove (and never insert a tombstone)
+// - local already deleted → keep it: it backs the Undo banner until GC'd
+// - local synced (live) → deleted on another device; remove row + queued photos
+// - local pending/failed → LWW: a newer tombstone wins, otherwise the local
+//   edit stays and resurrects the sighting on push
+async function applyRemoteTombstone(
+  remote: Sighting,
+  local: LocalSighting | undefined,
+): Promise<void> {
+  if (!local || local.deleted) return;
+  if (
+    local.syncStatus === "synced" ||
+    Date.parse(remote.clientUpdatedAt) > Date.parse(local.clientUpdatedAt)
+  ) {
+    await hardDeleteLocal(local.id);
+  }
+}
+
+async function hardDeleteLocal(id: string): Promise<void> {
+  await db.sightings.delete(id);
+  await db.photos.where("sightingId").equals(id).delete();
+}
+
+// A completed walk is a full snapshot of the account, tombstones included, so
+// any local synced row the walk never returned no longer exists on the server
+// for this account (fresh sign-in over an old cache, or a locally GC'd
+// tombstone). Pending/failed rows are kept — they carry unpushed work.
+async function removeRowsGoneFromServer(seen: Set<string>): Promise<void> {
+  await db.transaction("rw", db.sightings, db.photos, async () => {
+    const synced = await db.sightings
+      .where("syncStatus")
+      .equals("synced")
+      .toArray();
+    for (const row of synced) {
+      if (!seen.has(row.id)) await hardDeleteLocal(row.id);
+    }
+  });
+}
+
+// A synced tombstone has done its job (the server knows about the delete) and
+// exists locally only to back the Undo banner, which cannot outlive a page
+// load. Swept at app start so deleted rows don't accumulate forever.
+export async function gcSyncedTombstones(): Promise<void> {
+  await db.transaction("rw", db.sightings, db.photos, async () => {
+    const synced = await db.sightings
+      .where("syncStatus")
+      .equals("synced")
+      .toArray();
+    for (const row of synced) {
+      if (row.deleted) await hardDeleteLocal(row.id);
+    }
+  });
 }
 
 // ---------- entry point ------------------------------------------------------
@@ -246,8 +331,9 @@ async function syncPhotos(): Promise<void> {
   for (const [sightingId, photos] of bySighting) {
     const row = await db.sightings.get(sightingId);
     // parent sighting record doesn't exist in the local database yet
-    // (or hasn't finished syncing from the server).
-    if (!row || row.syncStatus !== "synced") continue;
+    // (or hasn't finished syncing from the server). Deleted rows keep their
+    // queued blobs unuploaded in case of Undo.
+    if (!row || row.syncStatus !== "synced" || row.deleted) continue;
 
     const newPaths: string[] = [];
     for (const p of photos) {
@@ -293,6 +379,13 @@ async function attachPhotoPaths(
     await db.sightings.put(adopted);
     // grab the conflicted state (old) to attach photos to
     await attachPhotoPaths(adopted, newPaths, false);
+    return;
+  }
+
+  if (response.status === 404) {
+    // Tombstoned on another device (PUT filters tombstones). Drop the queue
+    // for it rather than failing the whole pass; the pull confirms the delete.
+    await db.photos.where("sightingId").equals(row.id).delete();
     return;
   }
 
