@@ -48,9 +48,9 @@ type UpsertOutcome struct {
 type SightingRepository interface {
 	// Upsert applies one batch item as insert-or-update-if-newer scoped to the owner, setting capture fields only on insert (see UpsertOutcome).
 	Upsert(ctx context.Context, s models.Sighting) (UpsertOutcome, error)
-	// ListByUser returns up to limit rows for the user, newest first, excluding
-	// tombstones, resuming after cursor when non-nil.
-	ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int) ([]models.Sighting, error)
+	// ListByUser returns up to limit rows for the user, newest first, resuming
+	// after cursor when non-nil; tombstones are excluded unless includeDeleted.
+	ListByUser(ctx context.Context, userID string, cursor *models.Cursor, limit int, includeDeleted bool) ([]models.Sighting, error)
 	// GetForUser returns the caller's sighting, or found=false if it does not
 	// exist or belongs to someone else.
 	GetForUser(ctx context.Context, id, userID string) (row *models.Sighting, found bool, err error)

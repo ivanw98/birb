@@ -124,13 +124,13 @@ func TestListDefaultLimitAndNextCursor(t *testing.T) {
 	for i := range rows {
 		rows[i] = models.Sighting{ID: "sgh_" + pad(i), ObservedAt: base.Add(-time.Duration(i) * time.Minute)}
 	}
-	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, limit int) ([]models.Sighting, error) {
+	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, limit int, _ bool) ([]models.Sighting, error) {
 		gotLimit = limit
 		return rows, nil
 	}}
 	svc := newSightingSvc(sr, &mockBirdRepo{})
 
-	page, err := svc.List(context.Background(), testUser(), 0, "")
+	page, err := svc.List(context.Background(), testUser(), 0, "", false)
 	require.NoError(t, err)
 	assert.Equal(t, defaultPageLimit+1, gotLimit, "fetches limit+1")
 	assert.Len(t, page.Items, defaultPageLimit)
@@ -138,11 +138,11 @@ func TestListDefaultLimitAndNextCursor(t *testing.T) {
 }
 
 func TestListLastPageNilCursor(t *testing.T) {
-	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, _ int) ([]models.Sighting, error) {
+	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, _ int, _ bool) ([]models.Sighting, error) {
 		return []models.Sighting{{ID: validSgh, ObservedAt: fixedNow}}, nil
 	}}
 	svc := newSightingSvc(sr, &mockBirdRepo{})
-	page, err := svc.List(context.Background(), testUser(), 25, "")
+	page, err := svc.List(context.Background(), testUser(), 25, "", false)
 	require.NoError(t, err)
 	assert.Nil(t, page.NextCursor)
 	assert.Len(t, page.Items, 1)
@@ -150,19 +150,19 @@ func TestListLastPageNilCursor(t *testing.T) {
 
 func TestListClampsLimit(t *testing.T) {
 	var gotLimit int
-	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, limit int) ([]models.Sighting, error) {
+	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, limit int, _ bool) ([]models.Sighting, error) {
 		gotLimit = limit
 		return nil, nil
 	}}
 	svc := newSightingSvc(sr, &mockBirdRepo{})
-	_, err := svc.List(context.Background(), testUser(), 9999, "")
+	_, err := svc.List(context.Background(), testUser(), 9999, "", false)
 	require.NoError(t, err)
 	assert.Equal(t, maxPageLimit+1, gotLimit)
 }
 
 func TestListBadCursor(t *testing.T) {
 	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
-	_, err := svc.List(context.Background(), testUser(), 25, "!!!not-valid!!!")
+	_, err := svc.List(context.Background(), testUser(), 25, "!!!not-valid!!!", false)
 	ce := models.AsCoded(err)
 	assert.Equal(t, models.CodeValidationFailed, ce.Code)
 }
@@ -170,15 +170,27 @@ func TestListBadCursor(t *testing.T) {
 func TestListPassesDecodedCursor(t *testing.T) {
 	token := models.EncodeCursor(fixedNow, validSgh)
 	var got *models.Cursor
-	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, cur *models.Cursor, _ int) ([]models.Sighting, error) {
+	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, cur *models.Cursor, _ int, _ bool) ([]models.Sighting, error) {
 		got = cur
 		return nil, nil
 	}}
 	svc := newSightingSvc(sr, &mockBirdRepo{})
-	_, err := svc.List(context.Background(), testUser(), 25, token)
+	_, err := svc.List(context.Background(), testUser(), 25, token, false)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, validSgh, got.ID)
+}
+
+func TestListPassesIncludeDeleted(t *testing.T) {
+	var got bool
+	sr := &mockSightingRepo{ListFn: func(_ context.Context, _ string, _ *models.Cursor, _ int, includeDeleted bool) ([]models.Sighting, error) {
+		got = includeDeleted
+		return nil, nil
+	}}
+	svc := newSightingSvc(sr, &mockBirdRepo{})
+	_, err := svc.List(context.Background(), testUser(), 25, "", true)
+	require.NoError(t, err)
+	assert.True(t, got)
 }
 
 func TestUpdateApplied(t *testing.T) {

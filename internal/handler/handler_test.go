@@ -23,15 +23,15 @@ import (
 
 type mockSightingSvc struct {
 	batch  func(ctx context.Context, u models.User, req models.BatchSyncRequest) (models.BatchSyncResponse, error)
-	list   func(ctx context.Context, u models.User, limit int, cursor string) (models.SightingPage, error)
+	list   func(ctx context.Context, u models.User, limit int, cursor string, includeDeleted bool) (models.SightingPage, error)
 	update func(ctx context.Context, u models.User, id string, upd models.SightingUpdate) (models.Sighting, error)
 }
 
 func (m *mockSightingSvc) BatchSync(ctx context.Context, u models.User, req models.BatchSyncRequest) (models.BatchSyncResponse, error) {
 	return m.batch(ctx, u, req)
 }
-func (m *mockSightingSvc) List(ctx context.Context, u models.User, limit int, cursor string) (models.SightingPage, error) {
-	return m.list(ctx, u, limit, cursor)
+func (m *mockSightingSvc) List(ctx context.Context, u models.User, limit int, cursor string, includeDeleted bool) (models.SightingPage, error) {
+	return m.list(ctx, u, limit, cursor, includeDeleted)
 }
 func (m *mockSightingSvc) Update(ctx context.Context, u models.User, id string, upd models.SightingUpdate) (models.Sighting, error) {
 	return m.update(ctx, u, id, upd)
@@ -135,15 +135,26 @@ func TestBatchSyncTooLargeMapsTo400(t *testing.T) {
 
 func TestListOK(t *testing.T) {
 	next := "cursor123"
-	m := &mockSightingSvc{list: func(_ context.Context, _ models.User, limit int, cursor string) (models.SightingPage, error) {
+	m := &mockSightingSvc{list: func(_ context.Context, _ models.User, limit int, cursor string, includeDeleted bool) (models.SightingPage, error) {
 		assert.Equal(t, 10, limit)
 		assert.Equal(t, "abc", cursor)
+		assert.False(t, includeDeleted, "defaults to live rows only")
 		return models.SightingPage{Items: []models.Sighting{{ID: "sgh_1", PhotoPaths: []string{}}}, NextCursor: &next}, nil
 	}}
 	srv := server(New(m, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?limit=10&cursor=abc", "")
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"nextCursor":"cursor123"`)
+}
+
+func TestListIncludeDeleted(t *testing.T) {
+	m := &mockSightingSvc{list: func(_ context.Context, _ models.User, _ int, _ string, includeDeleted bool) (models.SightingPage, error) {
+		assert.True(t, includeDeleted)
+		return models.SightingPage{Items: []models.Sighting{}}, nil
+	}}
+	srv := server(New(m, nil, nil, testLogger()))
+	rr := do(t, srv, http.MethodGet, "/sightings?includeDeleted=true", "")
+	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
 func TestListBadLimit(t *testing.T) {
@@ -153,8 +164,15 @@ func TestListBadLimit(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), models.CodeValidationFailed)
 }
 
+func TestListBadIncludeDeleted(t *testing.T) {
+	srv := server(New(&mockSightingSvc{}, nil, nil, testLogger()))
+	rr := do(t, srv, http.MethodGet, "/sightings?includeDeleted=banana", "")
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), models.CodeValidationFailed)
+}
+
 func TestListPropagatesServiceError(t *testing.T) {
-	m := &mockSightingSvc{list: func(context.Context, models.User, int, string) (models.SightingPage, error) {
+	m := &mockSightingSvc{list: func(context.Context, models.User, int, string, bool) (models.SightingPage, error) {
 		return models.SightingPage{}, models.ErrValidation("bad cursor")
 	}}
 	srv := server(New(m, nil, nil, testLogger()))

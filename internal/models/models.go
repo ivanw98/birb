@@ -60,6 +60,9 @@ type Sighting struct {
 	Longitude               *float64  `db:"longitude" json:"longitude,omitempty"`
 	AccuracyM               *float64  `db:"accuracy_m" json:"accuracyM,omitempty"`
 	PhotoPaths              []string  `db:"photo_paths" json:"photoPaths"`
+	// Deleted mirrors deleted_at; on the wire it appears only on tombstones,
+	// which only includeDeleted listings return.
+	Deleted bool `json:"deleted,omitempty"`
 }
 
 // SightingSync is one item in a batch sync request; capture fields are honoured only on create, and ClientUpdatedAt drives last-write-wins on the content fields.
@@ -74,6 +77,7 @@ type SightingSync struct {
 	Latitude                *float64  `json:"latitude,omitempty"`
 	Longitude               *float64  `json:"longitude,omitempty"`
 	AccuracyM               *float64  `json:"accuracyM,omitempty"`
+	Deleted                 bool      `json:"deleted,omitempty"`
 }
 
 // BatchSyncRequest is the POST /api/sightings/batch body.
