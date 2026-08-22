@@ -279,6 +279,14 @@ jobs:
       - name: check seed migration drift
         run: git diff --exit-code db/migrations/00002_seed_birds.sql
 
+      # refresh-places is deliberately absent: it needs a 3.6MB network download whose
+      # contents change daily, and it mints frozen ids, which must never happen unattended.
+      - name: regenerate places seed migration
+        run: go run ./tools/gen-places
+
+      - name: check places seed migration drift
+        run: git diff --exit-code db/migrations/00006_seed_places.sql
+
   # ---------------------------------------------------------------------
   # Gate for merging
   # Requires [lint, unit, bdd, frontend-lint, frontend-build, frontend-test, generated-artifacts]
