@@ -27,6 +27,22 @@ type BirdService interface {
 	List(ctx context.Context) ([]models.Bird, string, error)
 }
 
+// GroupService orchestrates group membership.
+type GroupService interface {
+	// List returns every group the caller belongs to, with full membership.
+	List(ctx context.Context, user models.User) ([]models.Group, error)
+	// Create mints a group owned by the caller. Not idempotent.
+	Create(ctx context.Context, user models.User, req models.CreateGroupRequest) (models.Group, error)
+	// Join adds the caller to the group holding the code; re-joining returns it unchanged.
+	Join(ctx context.Context, user models.User, req models.JoinGroupRequest) (models.Group, error)
+	// Leave drops the caller's membership; idempotent, and refused for owners.
+	Leave(ctx context.Context, user models.User, groupID string) error
+	// Delete removes a group; owner only, idempotent.
+	Delete(ctx context.Context, user models.User, groupID string) error
+	// RemoveMember evicts another member; owner only, idempotent.
+	RemoveMember(ctx context.Context, user models.User, groupID, memberID string) error
+}
+
 // AccountService serves the caller's profile.
 type AccountService interface {
 	// Me returns the profile for a Supabase auth id.

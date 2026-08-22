@@ -5,6 +5,8 @@ package bdd
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,10 +15,13 @@ import (
 	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+
+	"github.com/ivanw98/birb/internal/models"
 )
 
 // bddNamespace roots the deterministic per-username auth-id derivation below.
@@ -28,6 +33,9 @@ const (
 	defaultUserID       = "usr_01j9z3x8k2m4n6p8r0s2t4v6w8"
 	defaultSightingID   = "sgh_01j9z3x8k2m4n6p8r0s2t4v6w8"
 	defaultSightingTime = "2025-06-01T10:00:00Z"
+
+	// bddJoinFailureLimit keeps the rate-limit scenario to a handful of requests.
+	bddJoinFailureLimit = 2
 )
 
 // authIDForUsername deterministically derives a stable Supabase-style auth uid (a UUID) from a BDD username.
@@ -39,62 +47,99 @@ func emailForUsername(username string) string {
 	return username + "@example.test"
 }
 
-// InitializeScenario registers the shared step library and per-scenario lifecycle hook, called once by godog.TestSuite.
-func InitializeScenario(sc *godog.ScenarioContext) {
-	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		if err := resetDB(ctx); err != nil {
-			return ctx, fmt.Errorf("reset db before scenario: %w", err)
-		}
-		return withWorld(ctx, newWorld()), nil
-	})
+// steps binds the step library to the suite harness; per-scenario state lives in World, carried through the context.
+type steps struct {
+	env *harness
+}
 
-	// --- Given: identity ---
-	sc.Step(`^I am anonymous$`, stepIAmAnonymous)
-	sc.Step(`^I am authenticated as "([^"]*)"$`, stepIAmAuthenticatedAs)
-	sc.Step(`^the user "([^"]*)" has tier "(free|premium)"$`, stepUserHasTier)
-	sc.Step(`^the default user exists$`, stepDefaultUser)
+// InitializeScenario builds the initializer godog.TestSuite calls, registering the shared step library and per-scenario lifecycle hook over the harness.
+func InitializeScenario(env *harness) func(*godog.ScenarioContext) {
+	s := &steps{env: env}
+	return func(sc *godog.ScenarioContext) {
+		sc.Before(s.before)
 
-	// --- Given: request building ---
-	sc.Step(`^I set header "([^"]*)" to "([^"]*)"$`, stepSetHeader)
-	sc.Step(`^I set query param "([^"]*)" to "([^"]*)"$`, stepSetQueryParam)
-	sc.Step(`^a seeded bird is saved as "([^"]*)"$`, stepSeededBird)
-	sc.Step(`^a string of (\d+) "([^"]*)" characters is saved as "([^"]*)"$`, stepSaveRepeatedString)
-	sc.Step(`^the default sighting exists$`, stepDefaultSighting)
+		// --- Given: identity ---
+		sc.Step(`^I am anonymous$`, s.iAmAnonymous)
+		sc.Step(`^I am authenticated as "([^"]*)"$`, s.iAmAuthenticatedAs)
+		sc.Step(`^I am authenticated as "([^"]*)" with display name "([^"]*)"$`, s.iAmAuthenticatedAsNamed)
+		sc.Step(`^the user "([^"]*)" has tier "(free|premium)"$`, s.userHasTier)
+		sc.Step(`^the default user exists$`, s.defaultUser)
+		sc.Step(`^the user "([^"]*)" exists$`, s.userExists)
+		sc.Step(`^the user "([^"]*)" exists with display name "([^"]*)"$`, s.userExistsNamed)
 
-	// --- When: actions ---
-	sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+)$`, stepMakeCall)
-	sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+) with body$`, stepMakeCallWithBody)
+		// --- Given: groups ---
+		sc.Step(`^a group "([^"]*)" owned by "([^"]*)" exists$`, s.groupExists)
+		sc.Step(`^a group "([^"]*)" owned by "([^"]*)" exists with join code "([^"]*)"$`, s.groupExistsWithCode)
+		sc.Step(`^"([^"]*)" is a member of group "([^"]*)"$`, s.userIsMemberOfGroup)
+		sc.Step(`^group "([^"]*)" has (\d+) other members$`, s.groupHasNOtherMembers)
+		sc.Step(`^"([^"]*)" is a member of (\d+) groups$`, s.userIsMemberOfNGroups)
+		sc.Step(`^"([^"]*)" owns (\d+) groups$`, s.userOwnsNGroups)
 
-	// --- Then: assertions ---
-	sc.Step(`^I should receive a (\d+) response$`, stepStatus)
-	sc.Step(`^I should receive a (\d+) JSON response$`, stepStatusJSON)
-	sc.Step(`^the response body should be$`, stepBodyExact)
-	sc.Step(`^the response body should contain$`, stepBodyContains)
-	sc.Step(`^the response field "([^"]*)" should be "([^"]*)"$`, stepField)
-	sc.Step(`^the response field "([^"]*)" should be absent$`, stepFieldAbsent)
-	sc.Step(`^the response field "([^"]*)" should match "([^"]*)"$`, stepFieldMatch)
-	sc.Step(`^the response header "([^"]*)" should be "([^"]*)"$`, stepHeaderEquals)
-	sc.Step(`^the response header "([^"]*)" should not be empty$`, stepHeaderNotEmpty)
-	sc.Step(`^I save the response under "([^"]*)"$`, stepSaveResponse)
-	sc.Step(`^I save the response header "([^"]*)" as "([^"]*)"$`, stepSaveResponseHeaderAs)
+		// --- Given: request building ---
+		sc.Step(`^I set header "([^"]*)" to "([^"]*)"$`, s.setHeader)
+		sc.Step(`^I set query param "([^"]*)" to "([^"]*)"$`, s.setQueryParam)
+		sc.Step(`^a seeded bird is saved as "([^"]*)"$`, s.seededBird)
+		sc.Step(`^a string of (\d+) "([^"]*)" characters is saved as "([^"]*)"$`, s.saveRepeatedString)
+		sc.Step(`^the default sighting exists$`, s.defaultSighting)
+
+		// --- When: actions ---
+		sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+)$`, s.makeCall)
+		sc.Step(`^I make a (GET|POST|PUT|PATCH|DELETE) call to (\S+) with body$`, s.makeCallWithBody)
+		sc.Step(`^I make (\d+) failed join attempts$`, s.nFailedJoinAttempts)
+
+		// --- Then: assertions ---
+		sc.Step(`^I should receive a (\d+) response$`, s.status)
+		sc.Step(`^I should receive a (\d+) JSON response$`, s.statusJSON)
+		sc.Step(`^the response body should be$`, s.bodyExact)
+		sc.Step(`^the response body should contain$`, s.bodyContains)
+		sc.Step(`^the response field "([^"]*)" should be "([^"]*)"$`, s.field)
+		sc.Step(`^the response field "([^"]*)" should be absent$`, s.fieldAbsent)
+		sc.Step(`^the response field "([^"]*)" should match "([^"]*)"$`, s.fieldMatch)
+		sc.Step(`^the response field "([^"]*)" should have (\d+) items$`, s.fieldLength)
+		sc.Step(`^the response should not contain "([^"]*)"$`, s.bodyNotContains)
+		sc.Step(`^the response header "([^"]*)" should be "([^"]*)"$`, s.headerEquals)
+		sc.Step(`^the response header "([^"]*)" should not be empty$`, s.headerNotEmpty)
+		sc.Step(`^I save the response under "([^"]*)"$`, s.saveResponse)
+		sc.Step(`^I save the response header "([^"]*)" as "([^"]*)"$`, s.saveResponseHeaderAs)
+	}
+}
+
+func (s *steps) before(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
+	if err := s.env.resetDB(ctx); err != nil {
+		return ctx, fmt.Errorf("reset db before scenario: %w", err)
+	}
+	return withWorld(ctx, newWorld()), nil
 }
 
 // --- Given: identity ---
 
-func stepIAmAnonymous(ctx context.Context) error {
+func (s *steps) iAmAnonymous(ctx context.Context) error {
 	w := worldFrom(ctx)
 	delete(w.headers, "Authorization")
 	w.clearCurrentUserVars()
 	return nil
 }
 
-func stepIAmAuthenticatedAs(ctx context.Context, username string) error {
+func (s *steps) iAmAuthenticatedAs(ctx context.Context, username string) error {
+	return s.authenticateAs(ctx, username, nil)
+}
+
+// iAmAuthenticatedAsNamed puts a display name in the token. The JIT upsert rewrites
+// display_name from the token on every request, so a name set only by a fixture INSERT is
+// erased the moment that user calls the API.
+func (s *steps) iAmAuthenticatedAsNamed(ctx context.Context, username, displayName string) error {
+	w := worldFrom(ctx)
+	name := w.interpolate(displayName)
+	return s.authenticateAs(ctx, username, &name)
+}
+
+func (s *steps) authenticateAs(ctx context.Context, username string, displayName *string) error {
 	w := worldFrom(ctx)
 	username = w.interpolate(username)
 	w.clearCurrentUserVars()
 
 	authID := authIDForUsername(username)
-	token, err := env.signer.sign(authID, emailForUsername(username), nil)
+	token, err := s.env.signer.sign(authID, emailForUsername(username), displayName)
 	if err != nil {
 		return fmt.Errorf("sign token for %q: %w", username, err)
 	}
@@ -104,25 +149,25 @@ func stepIAmAuthenticatedAs(ctx context.Context, username string) error {
 	return nil
 }
 
-// stepUserHasTier provisions the user via a real request, then updates their tier directly in the database, since tier is DB-side state that cannot be set via a request alone.
-func stepUserHasTier(ctx context.Context, username, tier string) error {
+// userHasTier provisions the user via a real request, then updates their tier directly in the database, since tier is DB-side state that cannot be set via a request alone.
+func (s *steps) userHasTier(ctx context.Context, username, tier string) error {
 	w := worldFrom(ctx)
 	username = w.interpolate(username)
 	authID := authIDForUsername(username)
 	email := emailForUsername(username)
 
-	token, err := env.signer.sign(authID, email, nil)
+	token, err := s.env.signer.sign(authID, email, nil)
 	if err != nil {
 		return fmt.Errorf("sign token for %q: %w", username, err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, env.baseURL+"/api/me", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.env.baseURL+"/api/me", nil)
 	if err != nil {
 		return fmt.Errorf("build provisioning request for %q: %w", username, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := env.client.Do(req)
+	resp, err := s.env.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("provision %q via GET /api/me: %w", username, err)
 	}
@@ -132,7 +177,7 @@ func stepUserHasTier(ctx context.Context, username, tier string) error {
 		return fmt.Errorf("provision %q via GET /api/me: status %d: %s", username, resp.StatusCode, body)
 	}
 
-	if _, err := env.db.ExecContext(ctx, `UPDATE users SET tier = $1 WHERE email = $2`, tier, email); err != nil {
+	if _, err := s.env.db.ExecContext(ctx, `UPDATE users SET tier = $1 WHERE email = $2`, tier, email); err != nil {
 		return fmt.Errorf("set tier %q for %q: %w", tier, username, err)
 	}
 	return nil
@@ -140,23 +185,23 @@ func stepUserHasTier(ctx context.Context, username, tier string) error {
 
 // --- Given: request building ---
 
-func stepSetHeader(ctx context.Context, name, value string) error {
+func (s *steps) setHeader(ctx context.Context, name, value string) error {
 	w := worldFrom(ctx)
 	w.headers[name] = w.interpolate(value)
 	return nil
 }
 
-func stepSetQueryParam(ctx context.Context, name, value string) error {
+func (s *steps) setQueryParam(ctx context.Context, name, value string) error {
 	w := worldFrom(ctx)
 	w.query[name] = w.interpolate(value)
 	return nil
 }
 
-// stepDefaultUser inserts the fixture user directly; kept separate from
+// defaultUser inserts the fixture user directly; kept separate from
 // authentication so token-only auth (first-call provisioning) stays testable.
-func stepDefaultUser(ctx context.Context) error {
+func (s *steps) defaultUser(ctx context.Context) error {
 	w := worldFrom(ctx)
-	if _, err := env.db.ExecContext(ctx, `
+	if _, err := s.env.db.ExecContext(ctx, `
 		INSERT INTO users (id, auth_id, email)
 		VALUES ($1, $2, $3)`,
 		defaultUserID, authIDForUsername(defaultUsername), emailForUsername(defaultUsername)); err != nil {
@@ -166,10 +211,10 @@ func stepDefaultUser(ctx context.Context) error {
 	return nil
 }
 
-// stepDefaultSighting inserts the default sighting, owned by the default user.
-func stepDefaultSighting(ctx context.Context) error {
+// defaultSighting inserts the default sighting, owned by the default user.
+func (s *steps) defaultSighting(ctx context.Context) error {
 	w := worldFrom(ctx)
-	if _, err := env.db.ExecContext(ctx, `
+	if _, err := s.env.db.ExecContext(ctx, `
 		INSERT INTO sightings (id, user_id, observed_at, observed_at_offset_minutes, client_updated_at, quick_note)
 		VALUES ($1, $2, $3, 0, $3, 'default sighting')`,
 		defaultSightingID, defaultUserID, defaultSightingTime); err != nil {
@@ -182,39 +227,39 @@ func stepDefaultSighting(ctx context.Context) error {
 	return nil
 }
 
-func stepSeededBird(ctx context.Context, varName string) error {
+func (s *steps) seededBird(ctx context.Context, varName string) error {
 	w := worldFrom(ctx)
 	var id string
-	if err := env.db.GetContext(ctx, &id, `SELECT id FROM birds ORDER BY taxonomic_order LIMIT 1`); err != nil {
+	if err := s.env.db.GetContext(ctx, &id, `SELECT id FROM birds ORDER BY taxonomic_order LIMIT 1`); err != nil {
 		return fmt.Errorf("select seeded bird: %w", err)
 	}
 	w.vars[varName] = id
 	return nil
 }
 
-// stepSaveRepeatedString saves count copies of s as a variable, so scenarios can build bodies that exceed a length limit without bloating the feature file.
-func stepSaveRepeatedString(ctx context.Context, count int, s, varName string) error {
+// saveRepeatedString saves count copies of str as a variable, so scenarios can build bodies that exceed a length limit without bloating the feature file.
+func (s *steps) saveRepeatedString(ctx context.Context, count int, str, varName string) error {
 	w := worldFrom(ctx)
-	w.vars[varName] = strings.Repeat(s, count)
+	w.vars[varName] = strings.Repeat(str, count)
 	return nil
 }
 
 // --- When: actions ---
 
-func stepMakeCall(ctx context.Context, method, path string) error {
-	return doCall(ctx, method, path, "")
+func (s *steps) makeCall(ctx context.Context, method, path string) error {
+	return s.doCall(ctx, method, path, "")
 }
 
-func stepMakeCallWithBody(ctx context.Context, method, path string, body *godog.DocString) error {
-	return doCall(ctx, method, path, body.Content)
+func (s *steps) makeCallWithBody(ctx context.Context, method, path string, body *godog.DocString) error {
+	return s.doCall(ctx, method, path, body.Content)
 }
 
 // doCall sends one HTTP request against the running server, interpolating the path, query, and body and attaching pending headers, then stashes the response on World.
-func doCall(ctx context.Context, method, rawPath, rawBody string) error {
+func (s *steps) doCall(ctx context.Context, method, rawPath, rawBody string) error {
 	w := worldFrom(ctx)
 	path := w.interpolate(rawPath)
 
-	target := env.baseURL + path
+	target := s.env.baseURL + path
 	if len(w.query) > 0 {
 		vals := url.Values{}
 		for k, v := range w.query {
@@ -250,7 +295,7 @@ func doCall(ctx context.Context, method, rawPath, rawBody string) error {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := env.client.Do(req)
+	resp, err := s.env.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("%s %s: %w", method, path, err)
 	}
@@ -277,7 +322,7 @@ func doCall(ctx context.Context, method, rawPath, rawBody string) error {
 
 // --- Then: assertions ---
 
-func stepStatus(ctx context.Context, status int) error {
+func (s *steps) status(ctx context.Context, status int) error {
 	w := worldFrom(ctx)
 	if w.status != status {
 		return fmt.Errorf("expected status %d, got %d: %s", status, w.status, string(w.body))
@@ -285,9 +330,9 @@ func stepStatus(ctx context.Context, status int) error {
 	return nil
 }
 
-func stepStatusJSON(ctx context.Context, status int) error {
+func (s *steps) statusJSON(ctx context.Context, status int) error {
 	w := worldFrom(ctx)
-	if err := stepStatus(ctx, status); err != nil {
+	if err := s.status(ctx, status); err != nil {
 		return err
 	}
 	ct := w.header.Get("Content-Type")
@@ -298,7 +343,7 @@ func stepStatusJSON(ctx context.Context, status int) error {
 	return nil
 }
 
-func stepBodyExact(ctx context.Context, doc *godog.DocString) error {
+func (s *steps) bodyExact(ctx context.Context, doc *godog.DocString) error {
 	w := worldFrom(ctx)
 	raw := w.interpolate(doc.Content)
 	var expected any
@@ -313,7 +358,7 @@ func stepBodyExact(ctx context.Context, doc *godog.DocString) error {
 	return nil
 }
 
-func stepBodyContains(ctx context.Context, doc *godog.DocString) error {
+func (s *steps) bodyContains(ctx context.Context, doc *godog.DocString) error {
 	w := worldFrom(ctx)
 	raw := w.interpolate(doc.Content)
 	var expected any
@@ -326,7 +371,7 @@ func stepBodyContains(ctx context.Context, doc *godog.DocString) error {
 	return nil
 }
 
-func stepField(ctx context.Context, path, value string) error {
+func (s *steps) field(ctx context.Context, path, value string) error {
 	w := worldFrom(ctx)
 	actual, ok := getPath(w.json, path)
 	if !ok {
@@ -339,8 +384,8 @@ func stepField(ctx context.Context, path, value string) error {
 	return nil
 }
 
-// stepFieldAbsent asserts a dotted path is not present in the response, e.g. the omitted `deleted` field on a live sighting.
-func stepFieldAbsent(ctx context.Context, path string) error {
+// fieldAbsent asserts a dotted path is not present in the response, e.g. the omitted `deleted` field on a live sighting.
+func (s *steps) fieldAbsent(ctx context.Context, path string) error {
 	w := worldFrom(ctx)
 	if v, ok := getPath(w.json, path); ok {
 		return fmt.Errorf("field %q should be absent, got %#v: %s", path, v, string(w.body))
@@ -348,8 +393,8 @@ func stepFieldAbsent(ctx context.Context, path string) error {
 	return nil
 }
 
-// stepFieldMatch asserts a response field matches a regex, e.g. a server-generated id's shape ("^usr_[a-z0-9]{26}$") that cannot be hard-coded.
-func stepFieldMatch(ctx context.Context, path, pattern string) error {
+// fieldMatch asserts a response field matches a regex, e.g. a server-generated id's shape ("^usr_[a-z0-9]{26}$") that cannot be hard-coded.
+func (s *steps) fieldMatch(ctx context.Context, path, pattern string) error {
 	w := worldFrom(ctx)
 	actual, ok := getPath(w.json, path)
 	if !ok {
@@ -359,14 +404,14 @@ func stepFieldMatch(ctx context.Context, path, pattern string) error {
 	if err != nil {
 		return fmt.Errorf("field %q: invalid pattern %q: %w", path, pattern, err)
 	}
-	s := stringify(actual)
-	if !re.MatchString(s) {
-		return fmt.Errorf("field %q: %q does not match pattern %q", path, s, pattern)
+	str := stringify(actual)
+	if !re.MatchString(str) {
+		return fmt.Errorf("field %q: %q does not match pattern %q", path, str, pattern)
 	}
 	return nil
 }
 
-func stepHeaderEquals(ctx context.Context, name, value string) error {
+func (s *steps) headerEquals(ctx context.Context, name, value string) error {
 	w := worldFrom(ctx)
 	got := w.header.Get(name)
 	want := w.interpolate(value)
@@ -376,7 +421,7 @@ func stepHeaderEquals(ctx context.Context, name, value string) error {
 	return nil
 }
 
-func stepHeaderNotEmpty(ctx context.Context, name string) error {
+func (s *steps) headerNotEmpty(ctx context.Context, name string) error {
 	w := worldFrom(ctx)
 	if w.header.Get(name) == "" {
 		return fmt.Errorf("header %q is empty", name)
@@ -384,16 +429,470 @@ func stepHeaderNotEmpty(ctx context.Context, name string) error {
 	return nil
 }
 
-func stepSaveResponse(ctx context.Context, prefix string) error {
+func (s *steps) saveResponse(ctx context.Context, prefix string) error {
 	w := worldFrom(ctx)
 	w.vars[prefix] = string(w.body)
 	flattenInto(w.vars, prefix, w.json)
 	return nil
 }
 
-// stepSaveResponseHeaderAs saves a response header into a variable, for round-tripping values like ETag into a later request.
-func stepSaveResponseHeaderAs(ctx context.Context, name, varName string) error {
+// fieldLength asserts an array's length; a path of "$" means the response root, for endpoints that return a bare array.
+func (s *steps) fieldLength(ctx context.Context, path string, want int) error {
+	w := worldFrom(ctx)
+	actual := w.json
+	if path != "$" {
+		var ok bool
+		if actual, ok = getPath(w.json, path); !ok {
+			return fmt.Errorf("field %q not found in response: %s", path, string(w.body))
+		}
+	}
+	arr, ok := actual.([]any)
+	if !ok {
+		return fmt.Errorf("field %q is not an array, got %#v", path, actual)
+	}
+	if len(arr) != want {
+		return fmt.Errorf("field %q: expected %d items, got %d: %s", path, want, len(arr), string(w.body))
+	}
+	return nil
+}
+
+// bodyNotContains asserts a raw substring is absent anywhere in the response.
+// It is the only assertion that catches a private field leaking somewhere the
+// scenario did not think to look.
+func (s *steps) bodyNotContains(ctx context.Context, needle string) error {
+	w := worldFrom(ctx)
+	want := w.interpolate(needle)
+	if strings.Contains(string(w.body), want) {
+		return fmt.Errorf("response should not contain %q: %s", want, string(w.body))
+	}
+	return nil
+}
+
+// saveResponseHeaderAs saves a response header into a variable, for round-tripping values like ETag into a later request.
+func (s *steps) saveResponseHeaderAs(ctx context.Context, name, varName string) error {
 	w := worldFrom(ctx)
 	w.vars[varName] = w.header.Get(name)
 	return nil
+}
+
+// --- group fixtures: rows are written straight to the database so a scenario
+// arranges membership without exercising the endpoints it is there to test ---
+
+// joinCodeAlphabet mirrors the server's confusable-free set (no 0, O, 1, I, L, U).
+const joinCodeAlphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
+
+// idForName derives a stable prefixed id from a fixture name, so a scenario can
+// reference a row whose id it never sees. Hex digits are a subset of the [a-z0-9]
+// the CHECK constraints allow.
+func idForName(prefix, name string) string {
+	sum := sha256.Sum256([]byte(prefix + name))
+	return prefix + hex.EncodeToString(sum[:])[:26]
+}
+
+func userIDForUsername(username string) string {
+	// Keep the two user fixtures in agreement: "the default user exists" hard-codes its id.
+	if username == defaultUsername {
+		return defaultUserID
+	}
+	return idForName(models.PrefixUser, username)
+}
+
+// joinCodeForName derives a deterministic, well-formed join code for a fixture group.
+func joinCodeForName(name string) string {
+	sum := sha256.Sum256([]byte("joincode:" + name))
+	out := make([]byte, 8)
+	for i := range out {
+		out[i] = joinCodeAlphabet[int(sum[i])%len(joinCodeAlphabet)]
+	}
+	return string(out)
+}
+
+// upsertUser writes a fixture user. Idempotent on auth_id so a group fixture can
+// conjure its owner without the scenario having to declare them first, and so the
+// JIT provisioning upsert later finds the same row.
+func (s *steps) upsertUser(ctx context.Context, username string, displayName *string) (string, error) {
+	id := userIDForUsername(username)
+	if _, err := s.env.db.ExecContext(ctx, `
+		INSERT INTO users (id, auth_id, email, display_name)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (auth_id) DO UPDATE
+		SET display_name = COALESCE(EXCLUDED.display_name, users.display_name)`,
+		id, authIDForUsername(username), emailForUsername(username), displayName); err != nil {
+		return "", fmt.Errorf("insert user %q: %w", username, err)
+	}
+	return id, nil
+}
+
+func (s *steps) insertGroup(ctx context.Context, groupName, ownerUsername, joinCode string) (string, error) {
+	ownerID, err := s.upsertUser(ctx, ownerUsername, nil)
+	if err != nil {
+		return "", err
+	}
+	id := idForName(models.PrefixGroup, groupName)
+	if _, err := s.env.db.ExecContext(ctx, `
+		INSERT INTO groups (id, name, owner_user_id, join_code)
+		VALUES ($1, $2, $3, $4)`,
+		id, groupName, ownerID, joinCode); err != nil {
+		return "", fmt.Errorf("insert group %q: %w", groupName, err)
+	}
+	if err := s.addMember(ctx, id, ownerID); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (s *steps) addMember(ctx context.Context, groupID, userID string) error {
+	if _, err := s.env.db.ExecContext(ctx, `
+		INSERT INTO group_members (group_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT (group_id, user_id) DO NOTHING`,
+		groupID, userID); err != nil {
+		return fmt.Errorf("add member %q to group %q: %w", userID, groupID, err)
+	}
+	return nil
+}
+
+// --- Given: users ---
+
+func (s *steps) userExists(ctx context.Context, username string) error {
+	return s.saveUser(ctx, username, nil)
+}
+
+func (s *steps) userExistsNamed(ctx context.Context, username, displayName string) error {
+	return s.saveUser(ctx, username, &displayName)
+}
+
+func (s *steps) saveUser(ctx context.Context, username string, displayName *string) error {
+	w := worldFrom(ctx)
+	username = w.interpolate(username)
+	id, err := s.upsertUser(ctx, username, displayName)
+	if err != nil {
+		return err
+	}
+	w.vars["user."+username+".id"] = id
+	return nil
+}
+
+// --- Given: groups ---
+
+func (s *steps) groupExists(ctx context.Context, groupName, ownerUsername string) error {
+	return s.saveGroup(ctx, groupName, ownerUsername, "")
+}
+
+func (s *steps) groupExistsWithCode(ctx context.Context, groupName, ownerUsername, joinCode string) error {
+	return s.saveGroup(ctx, groupName, ownerUsername, joinCode)
+}
+
+func (s *steps) saveGroup(ctx context.Context, groupName, ownerUsername, joinCode string) error {
+	w := worldFrom(ctx)
+	groupName = w.interpolate(groupName)
+	ownerUsername = w.interpolate(ownerUsername)
+	if joinCode == "" {
+		joinCode = joinCodeForName(groupName)
+	} else {
+		joinCode = strings.ToUpper(w.interpolate(joinCode))
+	}
+
+	id, err := s.insertGroup(ctx, groupName, ownerUsername, joinCode)
+	if err != nil {
+		return err
+	}
+	w.vars["user."+ownerUsername+".id"] = userIDForUsername(ownerUsername)
+	w.vars["group."+groupName+".id"] = id
+	w.vars["group."+groupName+".joinCode"] = joinCode
+	return nil
+}
+
+func (s *steps) userIsMemberOfGroup(ctx context.Context, username, groupName string) error {
+	w := worldFrom(ctx)
+	username = w.interpolate(username)
+	groupName = w.interpolate(groupName)
+
+	userID, err := s.upsertUser(ctx, username, nil)
+	if err != nil {
+		return err
+	}
+	w.vars["user."+username+".id"] = userID
+	return s.addMember(ctx, idForName(models.PrefixGroup, groupName), userID)
+}
+
+// --- Given: cap fixtures ---
+
+// groupHasNOtherMembers fills a group towards the members-per-group cap.
+func (s *steps) groupHasNOtherMembers(ctx context.Context, groupName string, n int) error {
+	w := worldFrom(ctx)
+	groupName = w.interpolate(groupName)
+	groupID := idForName(models.PrefixGroup, groupName)
+
+	for i := range n {
+		userID, err := s.upsertUser(ctx, fmt.Sprintf("%s_member_%d", groupName, i), nil)
+		if err != nil {
+			return err
+		}
+		if err := s.addMember(ctx, groupID, userID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// userIsMemberOfNGroups fills a user towards the memberships-per-user cap, using
+// groups owned by somebody else so the owned-groups cap stays untouched.
+func (s *steps) userIsMemberOfNGroups(ctx context.Context, username string, n int) error {
+	w := worldFrom(ctx)
+	username = w.interpolate(username)
+
+	userID, err := s.upsertUser(ctx, username, nil)
+	if err != nil {
+		return err
+	}
+	w.vars["user."+username+".id"] = userID
+
+	for i := range n {
+		name := fmt.Sprintf("%s_membership_%d", username, i)
+		groupID, err := s.insertGroup(ctx, name, fmt.Sprintf("%s_host_%d", username, i), joinCodeForName(name))
+		if err != nil {
+			return err
+		}
+		if err := s.addMember(ctx, groupID, userID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// userOwnsNGroups fills a user towards the owned-groups cap.
+func (s *steps) userOwnsNGroups(ctx context.Context, username string, n int) error {
+	w := worldFrom(ctx)
+	username = w.interpolate(username)
+
+	for i := range n {
+		name := fmt.Sprintf("%s_owned_%d", username, i)
+		if _, err := s.insertGroup(ctx, name, username, joinCodeForName(name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// --- When: bulk actions ---
+
+// nFailedJoinAttempts burns n rate-limit slots with codes that cannot match a group.
+func (s *steps) nFailedJoinAttempts(ctx context.Context, n int) error {
+	for i := range n {
+		body := fmt.Sprintf(`{"code": "%s"}`, joinCodeForName(fmt.Sprintf("miss_%d", i)))
+		if err := s.doCall(ctx, "POST", "/api/groups/join", body); err != nil {
+			return fmt.Errorf("failed join attempt %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// --- World: the per-scenario state that the steps above read and mutate ---
+
+// errAt formats a path-prefixed assertion failure, e.g. "$.results[0]: …".
+func errAt(path, format string, args ...any) error {
+	return fmt.Errorf("%s: %s", path, fmt.Sprintf(format, args...))
+}
+
+// World is per-scenario state — pending request config, identity, last response, and interpolation variables — reset fresh by the Before hook so scenarios never see each other's state.
+type World struct {
+	// pending request state: headers (including Authorization) persist across calls in a scenario; query is one-shot, cleared after every call (see afterCall).
+	headers map[string]string
+	query   map[string]string
+
+	// last response.
+	status int
+	header http.Header
+	body   []byte
+	json   any // body decoded into map[string]any/[]any/scalars; nil if empty or not JSON
+	// saved variables for {{ dotted.path }} interpolation, populated by the "authenticated as", "seeded bird", and "save the response" steps.
+	vars map[string]any
+}
+
+func newWorld() *World {
+	return &World{
+		headers: map[string]string{},
+		query:   map[string]string{},
+		vars:    map[string]any{},
+	}
+}
+
+// afterCall clears one-shot request state (query params) after a request is sent; headers persist for the rest of the scenario.
+func (w *World) afterCall() {
+	w.query = map[string]string{}
+}
+
+// clearCurrentUserVars drops every "current_user.*" variable so re-authenticating (or going anonymous) never leaks the previous identity's saved fields.
+func (w *World) clearCurrentUserVars() {
+	for k := range w.vars {
+		if strings.HasPrefix(k, "current_user.") {
+			delete(w.vars, k)
+		}
+	}
+}
+
+// --- context plumbing ---
+
+type worldKey struct{}
+
+func withWorld(ctx context.Context, w *World) context.Context {
+	return context.WithValue(ctx, worldKey{}, w)
+}
+
+func worldFrom(ctx context.Context) *World {
+	w, ok := ctx.Value(worldKey{}).(*World)
+	if !ok {
+		panic("bdd: no World in context; step registered outside the scenario Before hook")
+	}
+	return w
+}
+
+// --- {{ dotted.path }} interpolation ---
+
+var templateRe = regexp.MustCompile(`\{\{\s*([\w.-]+)\s*\}\}`)
+
+// interpolate replaces every {{ dotted.path }} placeholder in s with the string form of the matching variable, leaving unmatched placeholders verbatim.
+func (w *World) interpolate(s string) string {
+	return templateRe.ReplaceAllStringFunc(s, func(m string) string {
+		key := templateRe.FindStringSubmatch(m)[1]
+		if v, ok := w.vars[key]; ok {
+			return stringify(v)
+		}
+		return m
+	})
+}
+
+// stringify renders a JSON-decoded value (string/bool/float64/nil/etc.) as
+// text for interpolation into a path, header, query param, or docstring.
+func stringify(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return x
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64)
+	default:
+		b, err := json.Marshal(x)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
+}
+
+// --- dotted-path JSON field access (supports array indices) ---
+
+// getPath walks a JSON-decoded value (map[string]any/[]any/scalars) along a dotted path, e.g. "results.0.status", returning ok=false if the path runs past the shape.
+func getPath(obj any, path string) (any, bool) {
+	cur := obj
+	for _, part := range strings.Split(path, ".") {
+		switch v := cur.(type) {
+		case map[string]any:
+			nv, ok := v[part]
+			if !ok {
+				return nil, false
+			}
+			cur = nv
+		case []any:
+			idx, err := strconv.Atoi(part)
+			if err != nil || idx < 0 || idx >= len(v) {
+				return nil, false
+			}
+			cur = v[idx]
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+// coerceExpected parses an already-interpolated expected string as JSON when possible, so numbers/bools/null compare by native type, falling back to the raw string for bare words like "free" or "created".
+func coerceExpected(raw string) any {
+	var v any
+	if err := json.Unmarshal([]byte(raw), &v); err == nil {
+		return v
+	}
+	return raw
+}
+
+// fieldsEqual compares an actual decoded JSON value against a coerced
+// expected value with the same rules encoding/json would use on both sides.
+func fieldsEqual(actual, expected any) bool {
+	return reflect.DeepEqual(actual, expected)
+}
+
+// --- subset / exact body matching ---
+
+// assertSubset checks that every key in expected is present with a recursively-matching value in actual (unlisted keys ignored); arrays must match length and compare element-wise, and scalars (including null) compare by equality.
+func assertSubset(expected, actual any, path string) error {
+	switch ev := expected.(type) {
+	case map[string]any:
+		av, ok := actual.(map[string]any)
+		if !ok {
+			return errAt(path, "expected an object, got %T (%v)", actual, actual)
+		}
+		for k, v := range ev {
+			nv, ok := av[k]
+			if !ok {
+				return errAt(path, "missing key %q", k)
+			}
+			if err := assertSubset(v, nv, path+"."+k); err != nil {
+				return err
+			}
+		}
+		return nil
+	case []any:
+		av, ok := actual.([]any)
+		if !ok {
+			return errAt(path, "expected an array, got %T (%v)", actual, actual)
+		}
+		if len(ev) != len(av) {
+			return errAt(path, "length %d != %d", len(ev), len(av))
+		}
+		for i := range ev {
+			if err := assertSubset(ev[i], av[i], path+"["+strconv.Itoa(i)+"]"); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		if !fieldsEqual(actual, expected) {
+			return errAt(path, "%#v != %#v", expected, actual)
+		}
+		return nil
+	}
+}
+
+// --- flattening a response body into dotted/indexed variables ---
+
+// flattenInto stores every leaf (non-object, non-array) value under its dotted/indexed path relative to parent; container nodes are not stored themselves.
+func flattenInto(vars map[string]any, parent string, v any) {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, vv := range x {
+			flattenInto(vars, joinPath(parent, k), vv)
+		}
+	case []any:
+		for i, vv := range x {
+			flattenInto(vars, joinPath(parent, strconv.Itoa(i)), vv)
+		}
+	default:
+		if parent != "" {
+			vars[parent] = x
+		}
+	}
+}
+
+func joinPath(parent, key string) string {
+	if parent == "" {
+		return key
+	}
+	return parent + "." + key
 }
