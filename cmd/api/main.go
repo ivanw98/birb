@@ -76,7 +76,8 @@ func run(ctx context.Context, log *slog.Logger) error {
 	sightingSvc := service.NewSightings(repos.Sightings, repos.Birds, log)
 	birdSvc := service.NewBirds(repos.Birds)
 	accountSvc := service.NewAccount(repos.Users)
-	h := handler.New(sightingSvc, birdSvc, accountSvc, log)
+	groupSvc := service.NewGroups(repos.Groups, service.NewJoinLimiter(0, 0))
+	h := handler.New(sightingSvc, birdSvc, accountSvc, groupSvc, log)
 	authn := auth.NewAuthenticator(verifier, repos.Users, log)
 
 	srv := &http.Server{

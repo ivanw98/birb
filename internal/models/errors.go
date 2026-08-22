@@ -20,6 +20,13 @@ const (
 	CodeBadRequest       = "bad_request"
 	CodeUnauthorized     = "unauthorized"
 	CodeInternal         = "internal_error"
+
+	CodeUnknownJoinCode   = "unknown_join_code"
+	CodeNotGroupOwner     = "not_group_owner"
+	CodeOwnerCannotLeave  = "owner_cannot_leave"
+	CodeGroupFull         = "group_full"
+	CodeGroupLimitReached = "group_limit_reached"
+	CodeJoinRateLimited   = "join_rate_limited"
 )
 
 // CodedError is a request-level error that carries the HTTP status and wire code the handler should render.
@@ -75,6 +82,33 @@ func ErrUnauthorized(message string) *CodedError {
 
 func ErrInternal(message string) *CodedError {
 	return Coded(http.StatusInternalServerError, CodeInternal, message)
+}
+
+// Group constructors. A join code that is unknown, malformed or the wrong length all render alike,
+// so a caller probing codes learns nothing about the alphabet from the status.
+
+func ErrUnknownJoinCode(message string) *CodedError {
+	return Coded(http.StatusNotFound, CodeUnknownJoinCode, message)
+}
+
+func ErrNotGroupOwner(message string) *CodedError {
+	return Coded(http.StatusForbidden, CodeNotGroupOwner, message)
+}
+
+func ErrOwnerCannotLeave(message string) *CodedError {
+	return Coded(http.StatusConflict, CodeOwnerCannotLeave, message)
+}
+
+func ErrGroupFull(message string) *CodedError {
+	return Coded(http.StatusConflict, CodeGroupFull, message)
+}
+
+func ErrGroupLimitReached(message string) *CodedError {
+	return Coded(http.StatusConflict, CodeGroupLimitReached, message)
+}
+
+func ErrJoinRateLimited(message string) *CodedError {
+	return Coded(http.StatusTooManyRequests, CodeJoinRateLimited, message)
 }
 
 // AsCoded extracts a *CodedError from err, or returns a generic internal error

@@ -36,7 +36,7 @@ func (nopUserRepo) GetByAuthID(context.Context, string) (models.User, error) {
 func testLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
 func TestRouterHealthzIsPublic(t *testing.T) {
-	h := handler.New(nil, nil, nil, testLogger())
+	h := handler.New(nil, nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
 	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
@@ -51,7 +51,7 @@ func TestRouterHealthzIsPublic(t *testing.T) {
 }
 
 func TestRouterAPIRequiresAuth(t *testing.T) {
-	h := handler.New(nil, nil, nil, testLogger())
+	h := handler.New(nil, nil, nil, nil, testLogger())
 	authn := auth.NewAuthenticator(failVerifier{}, nopUserRepo{}, testLogger())
 	srv := httptest.NewServer(httpapi.NewRouter(h, authn, ""))
 	defer srv.Close()
