@@ -4,40 +4,38 @@ using Http;
 
 namespace Birb;
 
-// ---------------------------------------------------------------------------
-// Identifiers — Paddle/Stripe-style prefixed, k-sortable IDs (lowercase ULIDs).
-// The 26-char body is a Crockford base32 ULID normalised to lowercase, so the
-// values sort chronologically and carry their entity type on their face.
-// Stored server-side as `text` columns with matching CHECK-constraint regexes.
-// ---------------------------------------------------------------------------
+// Identifiers: Cuvva/Paddle/Stripe-style prefixed lowercase ULIDs (k-sortable).
 
-@doc("Sighting identifier: `sgh_` + 26-char lowercase ULID. Generated on the client at capture time and used as the idempotency key for sync.")
+@doc("Sighting identifier: `sgh_` + 26-char lowercase ULID.")
 @pattern("^sgh_[a-z0-9]{26}$")
 @example("sgh_01j9z3x8k2m4n6p8r0s2t4v6w8")
 scalar SightingId extends string;
 
-@doc("User identifier: `usr_` + 26-char lowercase ULID. Generated server-side on first authenticated request.")
+@doc("User identifier: `usr_` + 26-char lowercase ULID.")
 @pattern("^usr_[a-z0-9]{26}$")
 @example("usr_01j9z3x8k2m4n6p8r0s2t4v6w8")
 scalar UserId extends string;
 
-@doc("Bird (species) identifier: `brd_` + 26-char lowercase ULID. Frozen values assigned once in the seed list.")
+@doc("Bird (species) identifier: `brd_` + 26-char lowercase ULID.")
 @pattern("^brd_[a-z0-9]{26}$")
 @example("brd_01j9z3x8k2m4n6p8r0s2t4v6w8")
 scalar BirdId extends string;
 
-@doc("A bucket-relative Supabase Storage object path for a photo. The server stores paths only, never bytes. Bounded to 512 chars.")
+@doc("Group identifier: `grp_` + 26-char lowercase ULID.")
+@pattern("^grp_[a-z0-9]{26}$")
+@example("grp_01j9z3x8k2m4n6p8r0s2t4v6w8")
+scalar GroupId extends string;
+
+@doc("Bucket-relative Supabase Storage object path for a photo. Max 512 chars.")
 @maxLength(512)
 scalar PhotoPath extends string;
 
-// ---------------------------------------------------------------------------
-// Error envelope — the single error shape returned by every operation.
-// ---------------------------------------------------------------------------
+// Error envelope — returned by every operation.
 
-@doc("Machine-readable error. `code` is a stable slug for client branching; `message` is human-readable and may change.")
+@doc("Machine-readable error.")
 @error
 model ApiError {
-  @doc("Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`.")
+  @doc("Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`, `unknown_join_code`, `group_full`, `group_limit_reached`, `owner_cannot_leave`, `not_group_owner`, `join_rate_limited`.")
   code: string;
 
   @doc("Human-readable explanation. Do not parse.")
@@ -45,10 +43,7 @@ model ApiError {
   message: string;
 }
 
-// ---------------------------------------------------------------------------
-// Birds — the UK species reference list. Served for offline caching; changes
-// approximately never, so responses carry a strong ETag (see routes.tsp).
-// ---------------------------------------------------------------------------
+// Birds — UK species reference list, served for offline caching.
 
 @doc("A bird species in the UK reference list.")
 model Bird {
@@ -62,53 +57,36 @@ model Bird {
   @maxLength(200)
   scientificName: string;
 
-  @doc("eBird/Clements species code, e.g. \"wilwar\". Present for interoperability; absent for a few BOU rarities whose names differ from the eBird taxonomy.")
+  @doc("eBird/Clements species code, e.g. \"wilwar\". Absent for a few BOU rarities.")
   @maxLength(50)
   ebirdCode?: string;
 
-  @doc("Position in the BOU British List (list order), ascending. This is list position, not the eBird global taxon order.")
+  @doc("Position in the BOU British List (list order), ascending.")
   taxonomicOrder?: int32;
 }
 
-// ---------------------------------------------------------------------------
-// Sightings — the core record.
-//
-// Write-path model (two layers, so the two write paths never fight):
-//   * Capture fields (observedAt, observedAtOffsetMinutes, latitude, longitude,
-//     accuracyM) are set once when the row is created and are IMMUTABLE
-//     thereafter. Batch on-conflict never changes them; the enrichment PUT does
-//     not accept them.
-//   * Content fields (birdId, quickNote, notes, photoPaths) are mutable and
-//     arbitrated by clientUpdatedAt (last-write-wins).
-//
-// clientUpdatedAt is ALWAYS device wall-clock (UTC), written the same way by
-// both write paths — the batch sync and the enrichment PUT. The server never
-// stamps it, so the LWW comparison never mixes clock domains. Clients MUST keep
-// it monotonic per record (never emit a value <= the last one they sent for
-// that record, even if the device clock steps backwards); the server
-// additionally rejects values or observedAt more than 24h in the future.
-//
-// There is deliberately no server-side `status` column: pending/synced is
-// purely client (Dexie) state, and any row the server holds is by definition
-// synced.
-// ---------------------------------------------------------------------------
+// Sightings — capture fields (observedAt, observedAtOffsetMinutes, latitude,
+// longitude, accuracyM) are set on create and immutable thereafter. Content
+// fields (birdId, quickNote, notes, photoPaths) are mutable, arbitrated by
+// clientUpdatedAt (last-write-wins). No server-side `status` column —
+// pending/synced is purely client state.
 
-@doc("A recorded bird sighting as stored and returned by the server. Optional fields are omitted from the JSON when unset (never sent as explicit null).")
+@doc("A recorded bird sighting. Optional fields are omitted from JSON when unset.")
 model Sighting {
   id: SightingId;
 
-  @doc("Capture field (immutable). Wall-clock instant the bird was observed, as reported by the capturing device (UTC).")
+  @doc("Capture field (immutable). UTC instant the bird was observed.")
   observedAt: utcDateTime;
 
-  @doc("Capture field (immutable). Device UTC offset in minutes at capture (e.g. 60 for British Summer Time, 0 for GMT), preserving the historical local time of the observation regardless of where the record is later viewed. Range -840..840.")
+  @doc("Capture field (immutable). Device UTC offset in minutes at capture. Range -840..840.")
   @minValue(-840)
   @maxValue(840)
   observedAtOffsetMinutes: int32;
 
-  @doc("Device wall-clock of the last local content edit (UTC), monotonic per record. The last-write-wins arbiter, written identically by batch sync and the enrichment PUT.")
+  @doc("Device wall-clock of the last content edit (UTC), monotonic per record. LWW arbiter.")
   clientUpdatedAt: utcDateTime;
 
-  @doc("Server receipt time (UTC). Immutable; authoritative for auditing. Not the LWW arbiter.")
+  @doc("Server receipt time (UTC). Immutable, not the LWW arbiter.")
   @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 
@@ -116,64 +94,53 @@ model Sighting {
   @visibility(Lifecycle.Read)
   updatedAt: utcDateTime;
 
-  @doc("Content field. Identified species, if chosen. Omitted when the user only left a free-text quick note.")
+  @doc("Content field. Identified species, if chosen.")
   birdId?: BirdId;
 
-  @doc("Content field. Short free-text note captured in the field, e.g. \"small brown bird in reeds\". Omitted when unset.")
+  @doc("Content field. Short free-text note, e.g. \"small brown bird in reeds\".")
   @maxLength(280)
   quickNote?: string;
 
-  @doc("Content field. Longer notes added during enrichment back at base. Omitted when unset.")
+  @doc("Content field. Longer notes added during enrichment.")
   @maxLength(5000)
   notes?: string;
 
-  @doc("Capture field (immutable). Latitude in decimal degrees (WGS84), -90..90. Omitted if the device could not obtain a fix.")
+  @doc("Capture field (immutable). Latitude, WGS84, -90..90. Omitted if no GPS fix.")
   @minValue(-90)
   @maxValue(90)
   latitude?: float64;
 
-  @doc("Capture field (immutable). Longitude in decimal degrees (WGS84), -180..180. Omitted if the device could not obtain a fix.")
+  @doc("Capture field (immutable). Longitude, WGS84, -180..180. Omitted if no GPS fix.")
   @minValue(-180)
   @maxValue(180)
   longitude?: float64;
 
-  @doc("Capture field (immutable). Reported GPS accuracy radius in metres (>= 0). Omitted if unavailable.")
+  @doc("Capture field (immutable). GPS accuracy radius in metres, >= 0.")
   @minValue(0)
   accuracyM?: float64;
 
-  @doc("Content field. Bucket-relative Storage paths of attached photos (added via PUT). Max 10.")
+  @doc("Content field. Storage paths of attached photos. Max 10.")
   @maxItems(10)
   photoPaths: PhotoPath[];
 
-  @doc("Present and `true` only on tombstones, which are returned only when the list was requested with `includeDeleted=true`. Omitted on live rows.")
+  @doc("`true` only on tombstones, returned only when `includeDeleted=true`.")
   deleted?: boolean;
 }
 
-// ---------------------------------------------------------------------------
 // Batch sync — POST /api/sightings/batch. Pushes offline-captured sightings.
-// ---------------------------------------------------------------------------
 
 @doc("""
-One sighting queued offline and pushed during sync. `id` is client-generated and
-is the idempotency key: re-sending the same id is safe.
-
-The batch upsert is scoped to the caller. If the id does not exist, the row is
-created and owned by the caller. If it exists and the caller owns it, the
-mutable content fields (birdId, quickNote, notes) are overwritten only when the
-incoming clientUpdatedAt is strictly newer than the stored one (last-write-wins);
-otherwise the item is reported `stale` and nothing changes. Capture fields
-(observedAt, offset, coordinates) are set at creation and never changed by a
-later sync, so a re-send cannot mutate them. Photos are not handled here (see
-PUT). If the id exists but is owned by another user, the item is rejected
-`invalid` with code `id_conflict` — a batch never writes into another user's row.
-
-A `deleted: true` item tombstones the row under the same last-write-wins rule;
-a later item with a newer clientUpdatedAt and no `deleted` flag un-deletes it.
+One sighting queued offline. `id` is client-generated and is the idempotency
+key. Upsert is scoped to the caller: unknown id creates; known id owned by the
+caller updates content fields last-write-wins on clientUpdatedAt (older =
+`stale`, no change); id owned by another user is rejected `invalid`/`id_conflict`.
+Capture fields are honoured only on create. `deleted: true` tombstones under
+the same LWW rule.
 """)
 model SightingSync {
   id: SightingId;
 
-  @doc("Capture field, honoured only on create. Wall-clock instant the bird was observed (UTC). Rejected `invalid` if more than 24h in the future (device clock skew).")
+  @doc("Capture field, honoured only on create. Rejected `invalid` if >24h in the future.")
   observedAt: utcDateTime;
 
   @doc("Capture field, honoured only on create. Range -840..840.")
@@ -181,7 +148,7 @@ model SightingSync {
   @maxValue(840)
   observedAtOffsetMinutes: int32;
 
-  @doc("Device wall-clock of the last local content edit (UTC), monotonic per record. Drives last-write-wins. Rejected `invalid` if more than 24h in the future.")
+  @doc("LWW arbiter. Rejected `invalid` if >24h in the future.")
   clientUpdatedAt: utcDateTime;
 
   @doc("Content field.")
@@ -195,68 +162,55 @@ model SightingSync {
   @maxLength(5000)
   notes?: string;
 
-  @doc("Capture field, honoured only on create. Latitude -90..90.")
+  @doc("Capture field, honoured only on create. -90..90.")
   @minValue(-90)
   @maxValue(90)
   latitude?: float64;
 
-  @doc("Capture field, honoured only on create. Longitude -180..180.")
+  @doc("Capture field, honoured only on create. -180..180.")
   @minValue(-180)
   @maxValue(180)
   longitude?: float64;
 
-  @doc("Capture field, honoured only on create. GPS accuracy radius in metres, >= 0.")
+  @doc("Capture field, honoured only on create. >= 0.")
   @minValue(0)
   accuracyM?: float64;
 
-  @doc("Tombstone flag. `true` marks the sighting deleted; omitted or `false` marks it live, so a later edit with a newer clientUpdatedAt un-deletes. Arbitrated by clientUpdatedAt like the content fields.")
+  @doc("Tombstone flag. Arbitrated by clientUpdatedAt like content fields.")
   deleted?: boolean;
 }
 
-@doc("A batch of queued sightings to synchronise. At most 100 items; larger batches are rejected whole (`batch_too_large`) — the client chunks.")
+@doc("A batch of queued sightings. Max 100 items; larger batches rejected whole (`batch_too_large`).")
 model BatchSyncRequest {
   @maxItems(100)
   sightings: SightingSync[];
 }
 
-@doc("""
-Outcome for a single batch item. `created`/`updated`/`stale` are all successes
-from the client's perspective (mark the local row synced): `stale` means the
-server already holds an equal-or-newer version. `invalid` items (bad bird_id,
-future timestamp, or an id owned by another user) must be surfaced for
-correction and must not be blindly retried.
-""")
+@doc("Outcome for one batch item. `created`/`updated`/`stale` are successes; `invalid` must be surfaced and not retried.")
 model BatchItemResult {
   id: SightingId;
 
-  @doc("`created` = inserted; `updated` = overwrote older content; `stale` = server copy was newer, no change; `invalid` = rejected (see `error`, e.g. `id_conflict`, `unknown_bird_id`, `observed_at_in_future`).")
+  @doc("`created` = inserted; `updated` = overwrote older content; `stale` = server copy newer, no change; `invalid` = rejected (see `error`).")
   status: "created" | "updated" | "stale" | "invalid";
 
   @doc("Present only when `status` is `invalid`.")
   error?: ApiError;
 }
 
-@doc("Per-item results, one entry per submitted sighting, in request order. The overall request succeeds (HTTP 200) even when individual items are `invalid`.")
+@doc("Per-item results, one per submitted sighting, in request order. Overall request succeeds (200) even with invalid items.")
 model BatchSyncResponse {
   results: BatchItemResult[];
 }
 
-// ---------------------------------------------------------------------------
-// Enrichment — PUT /api/sightings/{id}. Interactive, online. Full replace of
-// the mutable content fields only; capture facts are immutable and absent.
-// ---------------------------------------------------------------------------
+// Enrichment — PUT /api/sightings/{id}. Full replace of content fields only.
 
 @doc("""
-The complete desired state of a sighting's mutable content fields. This is a full
-replace: a content field omitted from the request is cleared. Capture facts
-(observedAt, offset, coordinates) are immutable and are not part of this model.
-`clientUpdatedAt` is the device wall-clock of this edit (monotonic per record)
-and is compared against the stored value: a stale PUT (older than stored) is
-rejected 409 so the interactive UI can prompt the user to refresh, rather than
-silently dropping their edit.
+Full replace of a sighting's mutable content fields; an omitted field is
+cleared. Capture facts are immutable and not part of this model.
+`clientUpdatedAt` older than the stored value yields 409.
 """)
 model SightingUpdate {
-  @doc("Device wall-clock of this edit (UTC), monotonic per record. The LWW arbiter; a value older than the stored one yields 409.")
+  @doc("LWW arbiter. Older than stored yields 409.")
   clientUpdatedAt: utcDateTime;
 
   @doc("Identified species, or omitted to clear.")
@@ -270,29 +224,106 @@ model SightingUpdate {
   @maxLength(5000)
   notes?: string;
 
-  @doc("The full set of photo paths after this update. Each must belong to the caller (path prefixed with their auth uid and this sighting's id). Max 10.")
+  @doc("Full set of photo paths after this update. Each must belong to the caller. Max 10.")
   @maxItems(10)
   photoPaths: PhotoPath[];
 }
 
-// ---------------------------------------------------------------------------
 // Pagination — keyset over (observedAt DESC, id DESC).
-// ---------------------------------------------------------------------------
 
 @doc("A page of sightings, newest first.")
 model SightingPage {
   items: Sighting[];
 
-  @doc("Opaque cursor for the next page; pass back as `?cursor=`. Explicitly `null` on the last page.")
+  @doc("Opaque cursor for the next page. `null` on the last page.")
   nextCursor: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Account — GET /api/me. Triggers just-in-time provisioning and returns the
-// caller's tier (the monetization read path).
-// ---------------------------------------------------------------------------
+// Groups — social layer. Membership is the only sharing mechanism; joining
+// shares the feed projection with other members (no per-sighting opt-out in
+// v1).
 
-@doc("The authenticated caller's profile. Note: user provisioning happens in the auth middleware on every request, so this never fails for a valid token — it is not the only thing that creates the user.")
+@doc("A member of a group, as exposed to other members.")
+model GroupMember {
+  id: UserId;
+
+  @doc("Display name from the identity provider. Omitted if unset.")
+  @maxLength(200)
+  name?: string;
+
+  @doc("True for the member who created the group. Ownership never transfers.")
+  isOwner: boolean;
+}
+
+@doc("A named group and its full membership, as returned to a member.")
+model Group {
+  id: GroupId;
+
+  @doc("Human-chosen group name, e.g. \"Sunday walkers\". Trimmed server-side, 1..100 chars.")
+  @minLength(1)
+  @maxLength(100)
+  name: string;
+
+  @doc("Canonical join code: 8 uppercase chars, no separators, e.g. \"BQTX7RKM\". Excludes 0, O, 1, I, L, U.")
+  @minLength(8)
+  @maxLength(8)
+  joinCode: string;
+
+  @doc("True when the caller owns this group.")
+  isOwner: boolean;
+
+  @doc("Every member including the caller. Owner first, then join time ascending.")
+  members: GroupMember[];
+}
+
+@doc("Request to create a group. The caller becomes its owner and first member.")
+model CreateGroupRequest {
+  @doc("Group name. Trimmed server-side before the length check.")
+  @minLength(1)
+  @maxLength(100)
+  name: string;
+}
+
+@doc("Request to join a group by code.")
+model JoinGroupRequest {
+  @doc("Join code in any casing/separators — server normalises before lookup.")
+  @maxLength(32)
+  code: string;
+}
+
+// Feed — the read-only projection of a co-member's sighting.
+
+@doc("One co-member's sighting, as exposed to everyone sharing a group with them.")
+model FeedItem {
+  @doc("The projected sighting. Never one of the caller's own.")
+  sightingId: SightingId;
+
+  @doc("Identified species, if the observer chose one.")
+  birdId?: BirdId;
+
+  @doc("Observer's display name. Omitted if unset.")
+  @maxLength(200)
+  authorName?: string;
+
+  @doc("UTC instant the bird was observed.")
+  observedAt: utcDateTime;
+
+  @doc("Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km.")
+  @maxLength(200)
+  placeName?: string;
+}
+
+@doc("A page of co-members' sightings from the last 7 days, newest first.")
+model FeedPage {
+  items: FeedItem[];
+
+  @doc("Opaque cursor for the next page. `null` on the last page.")
+  nextCursor: string | null;
+}
+
+// Account — GET /api/me. Also triggers just-in-time user provisioning.
+
+@doc("The authenticated caller's profile.")
 model Me {
   id: UserId;
 
@@ -304,6 +335,6 @@ model Me {
   @maxLength(200)
   displayName?: string;
 
-  @doc("Subscription tier. `free` for everyone today; the hook for future premium features and sync limits.")
+  @doc("Subscription tier. `free` for everyone today.")
   tier: "free" | "premium";
 }
