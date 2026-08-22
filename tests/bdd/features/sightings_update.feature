@@ -1,10 +1,6 @@
 Feature: Updating a sighting (PUT /api/sightings/{id})
 
   Enriches an existing sighting: a full replace of the mutable content fields.
-  Capture facts (observedAt, offset, coordinates) are immutable and are not
-  part of this request. A stale write (clientUpdatedAt older than stored)
-  returns 409 with the current server state so an interactive UI can
-  reconcile; an unknown or foreign id returns 404.
 
   Background:
     Given I am authenticated as "alice"

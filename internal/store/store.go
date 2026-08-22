@@ -36,6 +36,30 @@ type BirdRepository interface {
 	ExistingIDs(ctx context.Context, ids []string) (map[string]struct{}, error)
 }
 
+// GroupRepository is the data access for groups and their membership.
+type GroupRepository interface {
+	// ListForUser returns every group the user belongs to with full membership, or just one when groupID is set.
+	ListForUser(ctx context.Context, userID string, groupID *string) ([]models.Group, error)
+	// Create inserts a group and its owner's membership together, returning ErrJoinCodeTaken if the code collided.
+	Create(ctx context.Context, id, name, ownerUserID, joinCode string) error
+	// FindByJoinCode resolves a canonical join code to its group.
+	FindByJoinCode(ctx context.Context, joinCode string) (id, ownerUserID string, found bool, err error)
+	// GetOwner returns the group's owner, or found=false when there is no such group.
+	GetOwner(ctx context.Context, groupID string) (ownerUserID string, found bool, err error)
+	// AddMember records a membership; replaying one is a no-op.
+	AddMember(ctx context.Context, groupID, userID string) error
+	// RemoveMember drops a membership; removing an absent one is a no-op.
+	RemoveMember(ctx context.Context, groupID, userID string) error
+	// Delete removes a group, cascading to its memberships.
+	Delete(ctx context.Context, groupID string) error
+	// IsMember reports whether the user already belongs to the group.
+	IsMember(ctx context.Context, groupID, userID string) (bool, error)
+	// CountMembers, CountMemberships and CountOwned back the three caps.
+	CountMembers(ctx context.Context, groupID string) (int, error)
+	CountMemberships(ctx context.Context, userID string) (int, error)
+	CountOwned(ctx context.Context, userID string) (int, error)
+}
+
 // UpsertOutcome reports how a batch upsert resolved for one sighting.
 type UpsertOutcome struct {
 	Status models.BatchItemStatus // created | updated | stale
@@ -63,6 +87,7 @@ type Store struct {
 	Users     *UserStore
 	Birds     *BirdStore
 	Sightings *SightingStore
+	Groups    *GroupStore
 }
 
 // New builds the repository set over db.
@@ -71,6 +96,7 @@ func New(db *sqlx.DB) *Store {
 		Users:     NewUserStore(db),
 		Birds:     NewBirdStore(db),
 		Sightings: NewSightingStore(db),
+		Groups:    NewGroupStore(db),
 	}
 }
 

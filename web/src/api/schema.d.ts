@@ -4,543 +4,890 @@
  */
 
 export interface paths {
-  "/api/birds": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/birds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the full UK bird reference list. Carries a strong ETag; revalidate with If-None-Match for 304. */
+        get: operations["Birds_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * @description Return the full UK bird reference list. The response carries a strong ETag; the
-     *     list changes approximately never, so clients should cache it and revalidate
-     *     with If-None-Match, receiving 304 when unchanged.
-     */
-    get: operations["Birds_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/me": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List co-members' sightings from the last 7 days, newest first, via keyset
+         *     pagination. Pass `nextCursor` back as `cursor`. The caller's own sightings
+         *     are never included, soft-deleted rows are excluded, and a caller in no
+         *     groups gets an empty page.
+         */
+        get: operations["Feed_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** @description Return the caller's profile. User provisioning occurs in the auth middleware on every authenticated request, so this is a read of already-provisioned state; it is also the client's source of truth for the current tier. */
-    get: operations["Account_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/sightings": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated — bounded by the membership and member caps. */
+        get: operations["Groups_list"];
+        put?: never;
+        /** @description Create a group; the caller becomes owner and first member and the server mints the join code. NOT idempotent, so clients must disable the control while in flight. `group_limit_reached` at the owned-groups cap. */
+        post: operations["Groups_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * @description List the caller's sightings, newest first, via keyset pagination. Pass the
-     *     previous response's `nextCursor` as `cursor` to page. Soft-deleted rows are
-     *     excluded unless `includeDeleted=true`, in which case tombstones are included
-     *     with `deleted: true` so multi-device clients can converge on deletions.
-     */
-    get: operations["Sightings_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/sightings/batch": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/groups/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Join by code, which the server normalises (uppercase, separators stripped) before lookup. Idempotent: re-joining returns the group unchanged. `unknown_join_code`, `group_full`, `group_limit_reached`; repeated failures are rate limited per user to 429 `join_rate_limited`. */
+        post: operations["Groups_join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * @description Synchronise a batch of offline-captured sightings. Idempotent, caller-scoped
-     *     upsert: new ids are created; existing ids owned by the caller have their
-     *     mutable content fields updated last-write-wins on clientUpdatedAt (older =
-     *     reported `stale`, no change); capture fields are never mutated after creation;
-     *     an id owned by another user is rejected `invalid`/`id_conflict`. Always returns
-     *     200 for a well-formed, authenticated request — per-item outcomes are in the
-     *     body. The whole request is rejected only for malformed JSON or more than 100
-     *     items (`batch_too_large`).
-     */
-    post: operations["Sightings_batchSync"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/sightings/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a group and, by cascade, its memberships; owner only (`not_group_owner`) and idempotent. Members' sightings are untouched. */
+        delete: operations["Groups_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /**
-     * @description Enrich an existing sighting (full replace of the mutable content fields;
-     *     capture facts are immutable and not accepted here). Interactive and online:
-     *     a stale write (submitted clientUpdatedAt older than stored) returns 409 with
-     *     the current state so the UI can reconcile. Returns 404 if the sighting does
-     *     not exist or belongs to another user. Photo paths must be owned by the caller.
-     */
-    put: operations["Sightings_update"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/api/groups/{id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave` — they delete instead, since ownership never transfers. */
+        post: operations["Groups_leave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groups/{id}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Remove another member; owner only (`not_group_owner`) and idempotent. (evict rather than rotate a code) */
+        delete: operations["Groups_removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return the caller's profile. Provisioning happens in auth middleware, so this is a read of already-provisioned state. */
+        get: operations["Account_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sightings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List the caller's sightings, newest first, via keyset pagination. Pass
+         *     `nextCursor` back as `cursor`. Soft-deleted rows are excluded unless
+         *     `includeDeleted=true`.
+         */
+        get: operations["Sightings_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sightings/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Synchronise offline-captured sightings. Idempotent caller-scoped upsert:
+         *     new ids create, existing ids update content last-write-wins (older =
+         *     `stale`), ids owned by another user are `invalid`/`id_conflict`. Always
+         *     200 for a well-formed request; per-item outcomes are in the body.
+         */
+        post: operations["Sightings_batchSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sightings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Enrich an existing sighting (full replace of content fields; capture
+         *     facts are immutable and not accepted here). A stale write returns 409
+         *     with current state. 404 if not found or owned by another user.
+         */
+        put: operations["Sightings_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** @description Machine-readable error. `code` is a stable slug for client branching; `message` is human-readable and may change. */
-    ApiError: {
-      /** @description Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`. */
-      code: string;
-      /** @description Human-readable explanation. Do not parse. */
-      message: string;
+    schemas: {
+        /** @description Machine-readable error. */
+        ApiError: {
+            /** @description Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`, `unknown_join_code`, `group_full`, `group_limit_reached`, `owner_cannot_leave`, `not_group_owner`, `join_rate_limited`. */
+            code: string;
+            /** @description Human-readable explanation. Do not parse. */
+            message: string;
+        };
+        /** @description Outcome for one batch item. `created`/`updated`/`stale` are successes; `invalid` must be surfaced and not retried. */
+        BatchItemResult: {
+            id: components["schemas"]["SightingId"];
+            /**
+             * @description `created` = inserted; `updated` = overwrote older content; `stale` = server copy newer, no change; `invalid` = rejected (see `error`).
+             * @enum {string}
+             */
+            status: "created" | "updated" | "stale" | "invalid";
+            /** @description Present only when `status` is `invalid`. */
+            error?: components["schemas"]["ApiError"];
+        };
+        /** @description A batch of queued sightings. Max 100 items; larger batches rejected whole (`batch_too_large`). */
+        BatchSyncRequest: {
+            sightings: components["schemas"]["SightingSync"][];
+        };
+        /** @description Per-item results, one per submitted sighting, in request order. Overall request succeeds (200) even with invalid items. */
+        BatchSyncResponse: {
+            results: components["schemas"]["BatchItemResult"][];
+        };
+        /** @description A bird species in the UK reference list. */
+        Bird: {
+            id: components["schemas"]["BirdId"];
+            /** @description English common name, e.g. "Eurasian Wren". */
+            commonName: string;
+            /** @description Scientific (binomial) name, e.g. "Troglodytes troglodytes". */
+            scientificName: string;
+            /** @description eBird/Clements species code, e.g. "wilwar". Absent for a few BOU rarities. */
+            ebirdCode?: string;
+            /**
+             * Format: int32
+             * @description Position in the BOU British List (list order), ascending.
+             */
+            taxonomicOrder?: number;
+        };
+        /**
+         * @description Bird (species) identifier: `brd_` + 26-char lowercase ULID.
+         * @example brd_01j9z3x8k2m4n6p8r0s2t4v6w8
+         */
+        BirdId: string;
+        /** @description Request to create a group. The caller becomes its owner and first member. */
+        CreateGroupRequest: {
+            /** @description Group name. Trimmed server-side before the length check. */
+            name: string;
+        };
+        /** @description One co-member's sighting, as exposed to everyone sharing a group with them. */
+        FeedItem: {
+            /** @description The projected sighting. Never one of the caller's own. */
+            sightingId: components["schemas"]["SightingId"];
+            /** @description Identified species, if the observer chose one. */
+            birdId?: components["schemas"]["BirdId"];
+            /** @description Observer's display name. Omitted if unset. */
+            authorName?: string;
+            /**
+             * Format: date-time
+             * @description UTC instant the bird was observed.
+             */
+            observedAt: string;
+            /** @description Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km. */
+            placeName?: string;
+        };
+        /** @description A page of co-members' sightings from the last 7 days, newest first. */
+        FeedPage: {
+            items: components["schemas"]["FeedItem"][];
+            /** @description Opaque cursor for the next page. `null` on the last page. */
+            nextCursor: string | null;
+        };
+        /** @description A named group and its full membership, as returned to a member. */
+        Group: {
+            id: components["schemas"]["GroupId"];
+            /** @description Human-chosen group name, e.g. "Sunday walkers". Trimmed server-side, 1..100 chars. */
+            name: string;
+            /** @description Canonical join code: 8 uppercase chars, no separators, e.g. "BQTX7RKM". Excludes 0, O, 1, I, L, U. */
+            joinCode: string;
+            /** @description True when the caller owns this group. */
+            isOwner: boolean;
+            /** @description Every member including the caller. Owner first, then join time ascending. */
+            members: components["schemas"]["GroupMember"][];
+        };
+        /**
+         * @description Group identifier: `grp_` + 26-char lowercase ULID.
+         * @example grp_01j9z3x8k2m4n6p8r0s2t4v6w8
+         */
+        GroupId: string;
+        /** @description A member of a group, as exposed to other members. */
+        GroupMember: {
+            id: components["schemas"]["UserId"];
+            /** @description Display name from the identity provider. Omitted if unset. */
+            name?: string;
+            /** @description True for the member who created the group. Ownership never transfers. */
+            isOwner: boolean;
+        };
+        /** @description Request to join a group by code. */
+        JoinGroupRequest: {
+            /** @description Join code in any casing/separators — server normalises before lookup. */
+            code: string;
+        };
+        /** @description The authenticated caller's profile. */
+        Me: {
+            id: components["schemas"]["UserId"];
+            /** @description Email from the verified token. */
+            email: string;
+            /** @description Display name from the Google profile, if present. */
+            displayName?: string;
+            /**
+             * @description Subscription tier. `free` for everyone today.
+             * @enum {string}
+             */
+            tier: "free" | "premium";
+        };
+        /** @description Bucket-relative Supabase Storage object path for a photo. Max 512 chars. */
+        PhotoPath: string;
+        /** @description A recorded bird sighting. Optional fields are omitted from JSON when unset. */
+        Sighting: {
+            id: components["schemas"]["SightingId"];
+            /**
+             * Format: date-time
+             * @description Capture field (immutable). UTC instant the bird was observed.
+             */
+            observedAt: string;
+            /**
+             * Format: int32
+             * @description Capture field (immutable). Device UTC offset in minutes at capture. Range -840..840.
+             */
+            observedAtOffsetMinutes: number;
+            /**
+             * Format: date-time
+             * @description Device wall-clock of the last content edit (UTC), monotonic per record. LWW arbiter.
+             */
+            clientUpdatedAt: string;
+            /**
+             * Format: date-time
+             * @description Server receipt time (UTC). Immutable, not the LWW arbiter.
+             */
+            readonly createdAt: string;
+            /**
+             * Format: date-time
+             * @description Server time of the last write (UTC). Not the LWW arbiter.
+             */
+            readonly updatedAt: string;
+            /** @description Content field. Identified species, if chosen. */
+            birdId?: components["schemas"]["BirdId"];
+            /** @description Content field. Short free-text note, e.g. "small brown bird in reeds". */
+            quickNote?: string;
+            /** @description Content field. Longer notes added during enrichment. */
+            notes?: string;
+            /**
+             * Format: double
+             * @description Capture field (immutable). Latitude, WGS84, -90..90. Omitted if no GPS fix.
+             */
+            latitude?: number;
+            /**
+             * Format: double
+             * @description Capture field (immutable). Longitude, WGS84, -180..180. Omitted if no GPS fix.
+             */
+            longitude?: number;
+            /**
+             * Format: double
+             * @description Capture field (immutable). GPS accuracy radius in metres, >= 0.
+             */
+            accuracyM?: number;
+            /** @description Content field. Storage paths of attached photos. Max 10. */
+            photoPaths: components["schemas"]["PhotoPath"][];
+            /** @description `true` only on tombstones, returned only when `includeDeleted=true`. */
+            deleted?: boolean;
+        };
+        /**
+         * @description Sighting identifier: `sgh_` + 26-char lowercase ULID.
+         * @example sgh_01j9z3x8k2m4n6p8r0s2t4v6w8
+         */
+        SightingId: string;
+        /** @description A page of sightings, newest first. */
+        SightingPage: {
+            items: components["schemas"]["Sighting"][];
+            /** @description Opaque cursor for the next page. `null` on the last page. */
+            nextCursor: string | null;
+        };
+        /**
+         * @description One sighting queued offline. `id` is client-generated and is the idempotency
+         *     key. Upsert is scoped to the caller: unknown id creates; known id owned by the
+         *     caller updates content fields last-write-wins on clientUpdatedAt (older =
+         *     `stale`, no change); id owned by another user is rejected `invalid`/`id_conflict`.
+         *     Capture fields are honoured only on create. `deleted: true` tombstones under
+         *     the same LWW rule.
+         */
+        SightingSync: {
+            id: components["schemas"]["SightingId"];
+            /**
+             * Format: date-time
+             * @description Capture field, honoured only on create. Rejected `invalid` if >24h in the future.
+             */
+            observedAt: string;
+            /**
+             * Format: int32
+             * @description Capture field, honoured only on create. Range -840..840.
+             */
+            observedAtOffsetMinutes: number;
+            /**
+             * Format: date-time
+             * @description LWW arbiter. Rejected `invalid` if >24h in the future.
+             */
+            clientUpdatedAt: string;
+            /** @description Content field. */
+            birdId?: components["schemas"]["BirdId"];
+            /** @description Content field. */
+            quickNote?: string;
+            /** @description Content field. */
+            notes?: string;
+            /**
+             * Format: double
+             * @description Capture field, honoured only on create. -90..90.
+             */
+            latitude?: number;
+            /**
+             * Format: double
+             * @description Capture field, honoured only on create. -180..180.
+             */
+            longitude?: number;
+            /**
+             * Format: double
+             * @description Capture field, honoured only on create. >= 0.
+             */
+            accuracyM?: number;
+            /** @description Tombstone flag. Arbitrated by clientUpdatedAt like content fields. */
+            deleted?: boolean;
+        };
+        /**
+         * @description Full replace of a sighting's mutable content fields; an omitted field is
+         *     cleared. Capture facts are immutable and not part of this model.
+         *     `clientUpdatedAt` older than the stored value yields 409.
+         */
+        SightingUpdate: {
+            /**
+             * Format: date-time
+             * @description LWW arbiter. Older than stored yields 409.
+             */
+            clientUpdatedAt: string;
+            /** @description Identified species, or omitted to clear. */
+            birdId?: components["schemas"]["BirdId"];
+            /** @description Field note, or omitted to clear. */
+            quickNote?: string;
+            /** @description Detailed notes, or omitted to clear. */
+            notes?: string;
+            /** @description Full set of photo paths after this update. Each must belong to the caller. Max 10. */
+            photoPaths: components["schemas"]["PhotoPath"][];
+        };
+        /** @description Returned by PUT /api/sightings/{id} when clientUpdatedAt is older than stored. Body is the current server state for reconciliation. */
+        StaleUpdate: {
+            /**
+             * @description Always `stale_update`.
+             * @enum {string}
+             */
+            code: "stale_update";
+            /** @description Current server state of the sighting. */
+            current: components["schemas"]["Sighting"];
+        };
+        /**
+         * @description User identifier: `usr_` + 26-char lowercase ULID.
+         * @example usr_01j9z3x8k2m4n6p8r0s2t4v6w8
+         */
+        UserId: string;
     };
-    /**
-     * @description Outcome for a single batch item. `created`/`updated`/`stale` are all successes
-     *     from the client's perspective (mark the local row synced): `stale` means the
-     *     server already holds an equal-or-newer version. `invalid` items (bad bird_id,
-     *     future timestamp, or an id owned by another user) must be surfaced for
-     *     correction and must not be blindly retried.
-     */
-    BatchItemResult: {
-      id: components["schemas"]["SightingId"];
-      /**
-       * @description `created` = inserted; `updated` = overwrote older content; `stale` = server copy was newer, no change; `invalid` = rejected (see `error`, e.g. `id_conflict`, `unknown_bird_id`, `observed_at_in_future`).
-       * @enum {string}
-       */
-      status: "created" | "updated" | "stale" | "invalid";
-      /** @description Present only when `status` is `invalid`. */
-      error?: components["schemas"]["ApiError"];
-    };
-    /** @description A batch of queued sightings to synchronise. At most 100 items; larger batches are rejected whole (`batch_too_large`) — the client chunks. */
-    BatchSyncRequest: {
-      sightings: components["schemas"]["SightingSync"][];
-    };
-    /** @description Per-item results, one entry per submitted sighting, in request order. The overall request succeeds (HTTP 200) even when individual items are `invalid`. */
-    BatchSyncResponse: {
-      results: components["schemas"]["BatchItemResult"][];
-    };
-    /** @description A bird species in the UK reference list. */
-    Bird: {
-      id: components["schemas"]["BirdId"];
-      /** @description English common name, e.g. "Eurasian Wren". */
-      commonName: string;
-      /** @description Scientific (binomial) name, e.g. "Troglodytes troglodytes". */
-      scientificName: string;
-      /** @description eBird/Clements species code, e.g. "wilwar". Present for interoperability; absent for a few BOU rarities whose names differ from the eBird taxonomy. */
-      ebirdCode?: string;
-      /**
-       * Format: int32
-       * @description Position in the BOU British List (list order), ascending. This is list position, not the eBird global taxon order.
-       */
-      taxonomicOrder?: number;
-    };
-    /**
-     * @description Bird (species) identifier: `brd_` + 26-char lowercase ULID. Frozen values assigned once in the seed list.
-     * @example brd_01j9z3x8k2m4n6p8r0s2t4v6w8
-     */
-    BirdId: string;
-    /** @description The authenticated caller's profile. Note: user provisioning happens in the auth middleware on every request, so this never fails for a valid token — it is not the only thing that creates the user. */
-    Me: {
-      id: components["schemas"]["UserId"];
-      /** @description Email from the verified token. */
-      email: string;
-      /** @description Display name from the Google profile, if present. */
-      displayName?: string;
-      /**
-       * @description Subscription tier. `free` for everyone today; the hook for future premium features and sync limits.
-       * @enum {string}
-       */
-      tier: "free" | "premium";
-    };
-    /** @description A bucket-relative Supabase Storage object path for a photo. The server stores paths only, never bytes. Bounded to 512 chars. */
-    PhotoPath: string;
-    /** @description A recorded bird sighting as stored and returned by the server. Optional fields are omitted from the JSON when unset (never sent as explicit null). */
-    Sighting: {
-      id: components["schemas"]["SightingId"];
-      /**
-       * Format: date-time
-       * @description Capture field (immutable). Wall-clock instant the bird was observed, as reported by the capturing device (UTC).
-       */
-      observedAt: string;
-      /**
-       * Format: int32
-       * @description Capture field (immutable). Device UTC offset in minutes at capture (e.g. 60 for British Summer Time, 0 for GMT), preserving the historical local time of the observation regardless of where the record is later viewed. Range -840..840.
-       */
-      observedAtOffsetMinutes: number;
-      /**
-       * Format: date-time
-       * @description Device wall-clock of the last local content edit (UTC), monotonic per record. The last-write-wins arbiter, written identically by batch sync and the enrichment PUT.
-       */
-      clientUpdatedAt: string;
-      /**
-       * Format: date-time
-       * @description Server receipt time (UTC). Immutable; authoritative for auditing. Not the LWW arbiter.
-       */
-      readonly createdAt: string;
-      /**
-       * Format: date-time
-       * @description Server time of the last write (UTC). Not the LWW arbiter.
-       */
-      readonly updatedAt: string;
-      /** @description Content field. Identified species, if chosen. Omitted when the user only left a free-text quick note. */
-      birdId?: components["schemas"]["BirdId"];
-      /** @description Content field. Short free-text note captured in the field, e.g. "small brown bird in reeds". Omitted when unset. */
-      quickNote?: string;
-      /** @description Content field. Longer notes added during enrichment back at base. Omitted when unset. */
-      notes?: string;
-      /**
-       * Format: double
-       * @description Capture field (immutable). Latitude in decimal degrees (WGS84), -90..90. Omitted if the device could not obtain a fix.
-       */
-      latitude?: number;
-      /**
-       * Format: double
-       * @description Capture field (immutable). Longitude in decimal degrees (WGS84), -180..180. Omitted if the device could not obtain a fix.
-       */
-      longitude?: number;
-      /**
-       * Format: double
-       * @description Capture field (immutable). Reported GPS accuracy radius in metres (>= 0). Omitted if unavailable.
-       */
-      accuracyM?: number;
-      /** @description Content field. Bucket-relative Storage paths of attached photos (added via PUT). Max 10. */
-      photoPaths: components["schemas"]["PhotoPath"][];
-      /** @description Present and `true` only on tombstones, which are returned only when the list was requested with `includeDeleted=true`. Omitted on live rows. */
-      deleted?: boolean;
-    };
-    /**
-     * @description Sighting identifier: `sgh_` + 26-char lowercase ULID. Generated on the client at capture time and used as the idempotency key for sync.
-     * @example sgh_01j9z3x8k2m4n6p8r0s2t4v6w8
-     */
-    SightingId: string;
-    /** @description A page of sightings, newest first. */
-    SightingPage: {
-      items: components["schemas"]["Sighting"][];
-      /** @description Opaque cursor for the next page; pass back as `?cursor=`. Explicitly `null` on the last page. */
-      nextCursor: string | null;
-    };
-    /**
-     * @description One sighting queued offline and pushed during sync. `id` is client-generated and
-     *     is the idempotency key: re-sending the same id is safe.
-     *
-     *     The batch upsert is scoped to the caller. If the id does not exist, the row is
-     *     created and owned by the caller. If it exists and the caller owns it, the
-     *     mutable content fields (birdId, quickNote, notes) are overwritten only when the
-     *     incoming clientUpdatedAt is strictly newer than the stored one (last-write-wins);
-     *     otherwise the item is reported `stale` and nothing changes. Capture fields
-     *     (observedAt, offset, coordinates) are set at creation and never changed by a
-     *     later sync, so a re-send cannot mutate them. Photos are not handled here (see
-     *     PUT). If the id exists but is owned by another user, the item is rejected
-     *     `invalid` with code `id_conflict` — a batch never writes into another user's row.
-     *
-     *     A `deleted: true` item tombstones the row under the same last-write-wins rule;
-     *     a later item with a newer clientUpdatedAt and no `deleted` flag un-deletes it.
-     */
-    SightingSync: {
-      id: components["schemas"]["SightingId"];
-      /**
-       * Format: date-time
-       * @description Capture field, honoured only on create. Wall-clock instant the bird was observed (UTC). Rejected `invalid` if more than 24h in the future (device clock skew).
-       */
-      observedAt: string;
-      /**
-       * Format: int32
-       * @description Capture field, honoured only on create. Range -840..840.
-       */
-      observedAtOffsetMinutes: number;
-      /**
-       * Format: date-time
-       * @description Device wall-clock of the last local content edit (UTC), monotonic per record. Drives last-write-wins. Rejected `invalid` if more than 24h in the future.
-       */
-      clientUpdatedAt: string;
-      /** @description Content field. */
-      birdId?: components["schemas"]["BirdId"];
-      /** @description Content field. */
-      quickNote?: string;
-      /** @description Content field. */
-      notes?: string;
-      /**
-       * Format: double
-       * @description Capture field, honoured only on create. Latitude -90..90.
-       */
-      latitude?: number;
-      /**
-       * Format: double
-       * @description Capture field, honoured only on create. Longitude -180..180.
-       */
-      longitude?: number;
-      /**
-       * Format: double
-       * @description Capture field, honoured only on create. GPS accuracy radius in metres, >= 0.
-       */
-      accuracyM?: number;
-      /**
-       * @description Tombstone flag.
-       * `true` marks the sighting deleted;
-       * omitted or `false` marks it live,
-       * so a later edit with a newer clientUpdatedAt un-deletes.
-       */
-      deleted?: boolean;
-    };
-    /**
-     * @description The complete desired state of a sighting's mutable content fields. This is a full
-     *     replace: a content field omitted from the request is cleared. Capture facts
-     *     (observedAt, offset, coordinates) are immutable and are not part of this model.
-     *     `clientUpdatedAt` is the device wall-clock of this edit (monotonic per record)
-     *     and is compared against the stored value: a stale PUT (older than stored) is
-     *     rejected 409 so the interactive UI can prompt the user to refresh, rather than
-     *     silently dropping their edit.
-     */
-    SightingUpdate: {
-      /**
-       * Format: date-time
-       * @description Device wall-clock of this edit (UTC), monotonic per record. The LWW arbiter; a value older than the stored one yields 409.
-       */
-      clientUpdatedAt: string;
-      /** @description Identified species, or omitted to clear. */
-      birdId?: components["schemas"]["BirdId"];
-      /** @description Field note, or omitted to clear. */
-      quickNote?: string;
-      /** @description Detailed notes, or omitted to clear. */
-      notes?: string;
-      /** @description The full set of photo paths after this update. Each must belong to the caller (path prefixed with their auth uid and this sighting's id). Max 10. */
-      photoPaths: components["schemas"]["PhotoPath"][];
-    };
-    /** @description Returned by PUT /api/sightings/{id} when the submitted clientUpdatedAt is older than the stored one. The body is the current server state so an interactive UI can reconcile and prompt the user to refresh rather than silently losing their edit. */
-    StaleUpdate: {
-      /**
-       * @description Stable slug: always `stale_update` for this response.
-       * @enum {string}
-       */
-      code: "stale_update";
-      /** @description The current server state of the sighting the caller tried to update. */
-      current: components["schemas"]["Sighting"];
-    };
-    /**
-     * @description User identifier: `usr_` + 26-char lowercase ULID. Generated server-side on first authenticated request.
-     * @example usr_01j9z3x8k2m4n6p8r0s2t4v6w8
-     */
-    UserId: string;
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  Birds_list: {
-    parameters: {
-      query?: never;
-      header?: {
-        /** @description The ETag from a prior response. If it matches the current list, the server returns 304 with no body. */
-        "If-None-Match"?: string;
-      };
-      path?: never;
-      cookie?: never;
+    Birds_list: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag from a prior response. Matching returns 304 with no body. */
+                "If-None-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 200 response for the bird list, carrying a strong ETag for conditional requests. */
+            200: {
+                headers: {
+                    /** @description Strong ETag of the current list. Echo it back in If-None-Match to revalidate. */
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Bird"][];
+                };
+            };
+            /** @description 304 Not Modified — If-None-Match matched the current ETag; no body. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description 200 response for the bird list, carrying a strong ETag for conditional requests. */
-      200: {
-        headers: {
-          /** @description Strong ETag of the current list. Echo it back in If-None-Match to revalidate. */
-          ETag: string;
-          [name: string]: unknown;
+    Feed_list: {
+        parameters: {
+            query?: {
+                /** @description Page size, 1..100. Defaults to 25. */
+                limit?: number;
+                /** @description Opaque cursor from a previous page's `nextCursor`. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Bird"][];
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedPage"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
-      };
-      /** @description 304 Not Modified — the client's If-None-Match matched the current ETag; no body. */
-      304: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description An unexpected error response. */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiError"];
-        };
-      };
     };
-  };
-  Account_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    Groups_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"][];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description The request has succeeded. */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    Groups_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Me"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGroupRequest"];
+            };
         };
-      };
-      /** @description An unexpected error response. */
-      default: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description 201 Created — the new group, including the server-minted join code. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
-        content: {
-          "application/json": components["schemas"]["ApiError"];
-        };
-      };
     };
-  };
-  Sightings_list: {
-    parameters: {
-      query?: {
-        /** @description Page size, 1..100. Defaults to 25 when omitted. */
-        limit?: number;
-        /** @description Opaque cursor from a previous page's `nextCursor`. Omit for the first page. */
-        cursor?: string;
-        /** @description Include tombstoned sightings, marked `deleted: true`. Omitted or false = live rows only. */
-        includeDeleted?: boolean;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
+    Groups_join: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Group"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description The request has succeeded. */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    Groups_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["GroupId"];
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["SightingPage"];
+        requestBody?: never;
+        responses: {
+            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
-      };
-      /** @description An unexpected error response. */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiError"];
-        };
-      };
     };
-  };
-  Sightings_batchSync: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    Groups_leave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["GroupId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BatchSyncRequest"];
-      };
+    Groups_removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["GroupId"];
+                userId: components["schemas"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description The request has succeeded. */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    Account_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["BatchSyncResponse"];
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
-      };
-      /** @description An unexpected error response. */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiError"];
-        };
-      };
     };
-  };
-  Sightings_update: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: components["schemas"]["SightingId"];
-      };
-      cookie?: never;
+    Sightings_list: {
+        parameters: {
+            query?: {
+                /** @description Page size, 1..100. Defaults to 25. */
+                limit?: number;
+                /** @description Opaque cursor from a previous page's `nextCursor`. */
+                cursor?: string;
+                /** @description Include tombstoned sightings, marked `deleted: true`. */
+                includeDeleted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SightingPage"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SightingUpdate"];
-      };
+    Sightings_batchSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchSyncResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
     };
-    responses: {
-      /** @description The request has succeeded. */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    Sightings_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["SightingId"];
+            };
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Sighting"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SightingUpdate"];
+            };
         };
-      };
-      /** @description Returned by PUT /api/sightings/{id} when the submitted clientUpdatedAt is older than the stored one. The body is the current server state so an interactive UI can reconcile and prompt the user to refresh rather than silently losing their edit. */
-      409: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sighting"];
+                };
+            };
+            /** @description Returned by PUT /api/sightings/{id} when clientUpdatedAt is older than stored. Body is the current server state for reconciliation. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaleUpdate"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
         };
-        content: {
-          "application/json": components["schemas"]["StaleUpdate"];
-        };
-      };
-      /** @description An unexpected error response. */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ApiError"];
-        };
-      };
     };
-  };
 }
