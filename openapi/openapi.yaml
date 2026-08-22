@@ -13,15 +13,12 @@ paths:
   /api/birds:
     get:
       operationId: Birds_list
-      description: |-
-        Return the full UK bird reference list. The response carries a strong ETag; the
-        list changes approximately never, so clients should cache it and revalidate
-        with If-None-Match, receiving 304 when unchanged.
+      description: Return the full UK bird reference list. Carries a strong ETag; revalidate with If-None-Match for 304.
       parameters:
         - name: If-None-Match
           in: header
           required: false
-          description: The ETag from a prior response. If it matches the current list, the server returns 304 with no body.
+          description: ETag from a prior response. Matching returns 304 with no body.
           schema:
             type: string
       responses:
@@ -40,7 +37,175 @@ paths:
                 items:
                   $ref: '#/components/schemas/Bird'
         '304':
-          description: 304 Not Modified — the client's If-None-Match matched the current ETag; no body.
+          description: 304 Not Modified — If-None-Match matched the current ETag; no body.
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/feed:
+    get:
+      operationId: Feed_list
+      description: |-
+        List co-members' sightings from the last 7 days, newest first, via keyset
+        pagination. Pass `nextCursor` back as `cursor`. The caller's own sightings
+        are never included, soft-deleted rows are excluded, and a caller in no
+        groups gets an empty page.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Page size, 1..100. Defaults to 25.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from a previous page's `nextCursor`.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPage'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/groups:
+    post:
+      operationId: Groups_create
+      description: Create a group; the caller becomes owner and first member and the server mints the join code. NOT idempotent, so clients must disable the control while in flight. `group_limit_reached` at the owned-groups cap.
+      parameters: []
+      responses:
+        '201':
+          description: 201 Created — the new group, including the server-minted join code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+    get:
+      operationId: Groups_list
+      description: List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated — bounded by the membership and member caps.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/groups/join:
+    post:
+      operationId: Groups_join
+      description: 'Join by code, which the server normalises (uppercase, separators stripped) before lookup. Idempotent: re-joining returns the group unchanged. `unknown_join_code`, `group_full`, `group_limit_reached`; repeated failures are rate limited per user to 429 `join_rate_limited`.'
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinGroupRequest'
+  /api/groups/{id}:
+    delete:
+      operationId: Groups_remove
+      description: Delete a group and, by cascade, its memberships; owner only (`not_group_owner`) and idempotent. Members' sightings are untouched.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/GroupId'
+      responses:
+        '204':
+          description: 204 No Content — the membership or group is gone (or was already gone); no body.
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/groups/{id}/leave:
+    post:
+      operationId: Groups_leave
+      description: Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave` — they delete instead, since ownership never transfers.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/GroupId'
+      responses:
+        '204':
+          description: 204 No Content — the membership or group is gone (or was already gone); no body.
+        default:
+          description: An unexpected error response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/groups/{id}/members/{userId}:
+    delete:
+      operationId: Groups_removeMember
+      description: Remove another member; owner only (`not_group_owner`) and idempotent. (evict rather than rotate a code)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/GroupId'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserId'
+      responses:
+        '204':
+          description: 204 No Content — the membership or group is gone (or was already gone); no body.
         default:
           description: An unexpected error response.
           content:
@@ -50,7 +215,7 @@ paths:
   /api/me:
     get:
       operationId: Account_get
-      description: Return the caller's profile. User provisioning occurs in the auth middleware on every authenticated request, so this is a read of already-provisioned state; it is also the client's source of truth for the current tier.
+      description: Return the caller's profile. Provisioning happens in auth middleware, so this is a read of already-provisioned state.
       parameters: []
       responses:
         '200':
@@ -69,15 +234,14 @@ paths:
     get:
       operationId: Sightings_list
       description: |-
-        List the caller's sightings, newest first, via keyset pagination. Pass the
-        previous response's `nextCursor` as `cursor` to page. Soft-deleted rows are
-        excluded unless `includeDeleted=true`, in which case tombstones are included
-        with `deleted: true` so multi-device clients can converge on deletions.
+        List the caller's sightings, newest first, via keyset pagination. Pass
+        `nextCursor` back as `cursor`. Soft-deleted rows are excluded unless
+        `includeDeleted=true`.
       parameters:
         - name: limit
           in: query
           required: false
-          description: Page size, 1..100. Defaults to 25 when omitted.
+          description: Page size, 1..100. Defaults to 25.
           schema:
             type: integer
             format: int32
@@ -87,14 +251,14 @@ paths:
         - name: cursor
           in: query
           required: false
-          description: Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
+          description: Opaque cursor from a previous page's `nextCursor`.
           schema:
             type: string
           explode: false
         - name: includeDeleted
           in: query
           required: false
-          description: 'Include tombstoned sightings, marked `deleted: true`. Omitted or false = live rows only.'
+          description: 'Include tombstoned sightings, marked `deleted: true`.'
           schema:
             type: boolean
           explode: false
@@ -115,14 +279,10 @@ paths:
     post:
       operationId: Sightings_batchSync
       description: |-
-        Synchronise a batch of offline-captured sightings. Idempotent, caller-scoped
-        upsert: new ids are created; existing ids owned by the caller have their
-        mutable content fields updated last-write-wins on clientUpdatedAt (older =
-        reported `stale`, no change); capture fields are never mutated after creation;
-        an id owned by another user is rejected `invalid`/`id_conflict`. Always returns
-        200 for a well-formed, authenticated request — per-item outcomes are in the
-        body. The whole request is rejected only for malformed JSON or more than 100
-        items (`batch_too_large`).
+        Synchronise offline-captured sightings. Idempotent caller-scoped upsert:
+        new ids create, existing ids update content last-write-wins (older =
+        `stale`), ids owned by another user are `invalid`/`id_conflict`. Always
+        200 for a well-formed request; per-item outcomes are in the body.
       parameters: []
       responses:
         '200':
@@ -147,11 +307,9 @@ paths:
     put:
       operationId: Sightings_update
       description: |-
-        Enrich an existing sighting (full replace of the mutable content fields;
-        capture facts are immutable and not accepted here). Interactive and online:
-        a stale write (submitted clientUpdatedAt older than stored) returns 409 with
-        the current state so the UI can reconcile. Returns 404 if the sighting does
-        not exist or belongs to another user. Photo paths must be owned by the caller.
+        Enrich an existing sighting (full replace of content fields; capture
+        facts are immutable and not accepted here). A stale write returns 409
+        with current state. 404 if not found or owned by another user.
       parameters:
         - name: id
           in: path
@@ -166,7 +324,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Sighting'
         '409':
-          description: Returned by PUT /api/sightings/{id} when the submitted clientUpdatedAt is older than the stored one. The body is the current server state so an interactive UI can reconcile and prompt the user to refresh rather than silently losing their edit.
+          description: Returned by PUT /api/sightings/{id} when clientUpdatedAt is older than stored. Body is the current server state for reconciliation.
           content:
             application/json:
               schema:
@@ -195,12 +353,12 @@ components:
       properties:
         code:
           type: string
-          description: Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`.
+          description: Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`, `unknown_join_code`, `group_full`, `group_limit_reached`, `owner_cannot_leave`, `not_group_owner`, `join_rate_limited`.
         message:
           type: string
           maxLength: 1000
           description: Human-readable explanation. Do not parse.
-      description: Machine-readable error. `code` is a stable slug for client branching; `message` is human-readable and may change.
+      description: Machine-readable error.
     BatchItemResult:
       type: object
       required:
@@ -216,17 +374,12 @@ components:
             - updated
             - stale
             - invalid
-          description: '`created` = inserted; `updated` = overwrote older content; `stale` = server copy was newer, no change; `invalid` = rejected (see `error`, e.g. `id_conflict`, `unknown_bird_id`, `observed_at_in_future`).'
+          description: '`created` = inserted; `updated` = overwrote older content; `stale` = server copy newer, no change; `invalid` = rejected (see `error`).'
         error:
           allOf:
             - $ref: '#/components/schemas/ApiError'
           description: Present only when `status` is `invalid`.
-      description: |-
-        Outcome for a single batch item. `created`/`updated`/`stale` are all successes
-        from the client's perspective (mark the local row synced): `stale` means the
-        server already holds an equal-or-newer version. `invalid` items (bad bird_id,
-        future timestamp, or an id owned by another user) must be surfaced for
-        correction and must not be blindly retried.
+      description: Outcome for one batch item. `created`/`updated`/`stale` are successes; `invalid` must be surfaced and not retried.
     BatchSyncRequest:
       type: object
       required:
@@ -237,7 +390,7 @@ components:
           items:
             $ref: '#/components/schemas/SightingSync'
           maxItems: 100
-      description: A batch of queued sightings to synchronise. At most 100 items; larger batches are rejected whole (`batch_too_large`) — the client chunks.
+      description: A batch of queued sightings. Max 100 items; larger batches rejected whole (`batch_too_large`).
     BatchSyncResponse:
       type: object
       required:
@@ -247,7 +400,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BatchItemResult'
-      description: Per-item results, one entry per submitted sighting, in request order. The overall request succeeds (HTTP 200) even when individual items are `invalid`.
+      description: Per-item results, one per submitted sighting, in request order. Overall request succeeds (200) even with invalid items.
     Bird:
       type: object
       required:
@@ -268,18 +421,134 @@ components:
         ebirdCode:
           type: string
           maxLength: 50
-          description: eBird/Clements species code, e.g. "wilwar". Present for interoperability; absent for a few BOU rarities whose names differ from the eBird taxonomy.
+          description: eBird/Clements species code, e.g. "wilwar". Absent for a few BOU rarities.
         taxonomicOrder:
           type: integer
           format: int32
-          description: Position in the BOU British List (list order), ascending. This is list position, not the eBird global taxon order.
+          description: Position in the BOU British List (list order), ascending.
       description: A bird species in the UK reference list.
     BirdId:
       type: string
       pattern: ^brd_[a-z0-9]{26}$
-      description: 'Bird (species) identifier: `brd_` + 26-char lowercase ULID. Frozen values assigned once in the seed list.'
+      description: 'Bird (species) identifier: `brd_` + 26-char lowercase ULID.'
       examples:
         - brd_01j9z3x8k2m4n6p8r0s2t4v6w8
+    CreateGroupRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Group name. Trimmed server-side before the length check.
+      description: Request to create a group. The caller becomes its owner and first member.
+    FeedItem:
+      type: object
+      required:
+        - sightingId
+        - observedAt
+      properties:
+        sightingId:
+          allOf:
+            - $ref: '#/components/schemas/SightingId'
+          description: The projected sighting. Never one of the caller's own.
+        birdId:
+          allOf:
+            - $ref: '#/components/schemas/BirdId'
+          description: Identified species, if the observer chose one.
+        authorName:
+          type: string
+          maxLength: 200
+          description: Observer's display name. Omitted if unset.
+        observedAt:
+          type: string
+          format: date-time
+          description: UTC instant the bird was observed.
+        placeName:
+          type: string
+          maxLength: 200
+          description: Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km.
+      description: One co-member's sighting, as exposed to everyone sharing a group with them.
+    FeedPage:
+      type: object
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedItem'
+        nextCursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+          description: Opaque cursor for the next page. `null` on the last page.
+      description: A page of co-members' sightings from the last 7 days, newest first.
+    Group:
+      type: object
+      required:
+        - id
+        - name
+        - joinCode
+        - isOwner
+        - members
+      properties:
+        id:
+          $ref: '#/components/schemas/GroupId'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Human-chosen group name, e.g. "Sunday walkers". Trimmed server-side, 1..100 chars.
+        joinCode:
+          type: string
+          minLength: 8
+          maxLength: 8
+          description: 'Canonical join code: 8 uppercase chars, no separators, e.g. "BQTX7RKM". Excludes 0, O, 1, I, L, U.'
+        isOwner:
+          type: boolean
+          description: True when the caller owns this group.
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMember'
+          description: Every member including the caller. Owner first, then join time ascending.
+      description: A named group and its full membership, as returned to a member.
+    GroupId:
+      type: string
+      pattern: ^grp_[a-z0-9]{26}$
+      description: 'Group identifier: `grp_` + 26-char lowercase ULID.'
+      examples:
+        - grp_01j9z3x8k2m4n6p8r0s2t4v6w8
+    GroupMember:
+      type: object
+      required:
+        - id
+        - isOwner
+      properties:
+        id:
+          $ref: '#/components/schemas/UserId'
+        name:
+          type: string
+          maxLength: 200
+          description: Display name from the identity provider. Omitted if unset.
+        isOwner:
+          type: boolean
+          description: True for the member who created the group. Ownership never transfers.
+      description: A member of a group, as exposed to other members.
+    JoinGroupRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          maxLength: 32
+          description: Join code in any casing/separators — server normalises before lookup.
+      description: Request to join a group by code.
     Me:
       type: object
       required:
@@ -302,12 +571,12 @@ components:
           enum:
             - free
             - premium
-          description: Subscription tier. `free` for everyone today; the hook for future premium features and sync limits.
-      description: "The authenticated caller's profile. Note: user provisioning happens in the auth middleware on every request, so this never fails for a valid token — it is not the only thing that creates the user."
+          description: Subscription tier. `free` for everyone today.
+      description: The authenticated caller's profile.
     PhotoPath:
       type: string
       maxLength: 512
-      description: A bucket-relative Supabase Storage object path for a photo. The server stores paths only, never bytes. Bounded to 512 chars.
+      description: Bucket-relative Supabase Storage object path for a photo. Max 512 chars.
     Sighting:
       type: object
       required:
@@ -324,21 +593,21 @@ components:
         observedAt:
           type: string
           format: date-time
-          description: Capture field (immutable). Wall-clock instant the bird was observed, as reported by the capturing device (UTC).
+          description: Capture field (immutable). UTC instant the bird was observed.
         observedAtOffsetMinutes:
           type: integer
           format: int32
           minimum: -840
           maximum: 840
-          description: Capture field (immutable). Device UTC offset in minutes at capture (e.g. 60 for British Summer Time, 0 for GMT), preserving the historical local time of the observation regardless of where the record is later viewed. Range -840..840.
+          description: Capture field (immutable). Device UTC offset in minutes at capture. Range -840..840.
         clientUpdatedAt:
           type: string
           format: date-time
-          description: Device wall-clock of the last local content edit (UTC), monotonic per record. The last-write-wins arbiter, written identically by batch sync and the enrichment PUT.
+          description: Device wall-clock of the last content edit (UTC), monotonic per record. LWW arbiter.
         createdAt:
           type: string
           format: date-time
-          description: Server receipt time (UTC). Immutable; authoritative for auditing. Not the LWW arbiter.
+          description: Server receipt time (UTC). Immutable, not the LWW arbiter.
           readOnly: true
         updatedAt:
           type: string
@@ -348,46 +617,46 @@ components:
         birdId:
           allOf:
             - $ref: '#/components/schemas/BirdId'
-          description: Content field. Identified species, if chosen. Omitted when the user only left a free-text quick note.
+          description: Content field. Identified species, if chosen.
         quickNote:
           type: string
           maxLength: 280
-          description: Content field. Short free-text note captured in the field, e.g. "small brown bird in reeds". Omitted when unset.
+          description: Content field. Short free-text note, e.g. "small brown bird in reeds".
         notes:
           type: string
           maxLength: 5000
-          description: Content field. Longer notes added during enrichment back at base. Omitted when unset.
+          description: Content field. Longer notes added during enrichment.
         latitude:
           type: number
           format: double
           minimum: -90
           maximum: 90
-          description: Capture field (immutable). Latitude in decimal degrees (WGS84), -90..90. Omitted if the device could not obtain a fix.
+          description: Capture field (immutable). Latitude, WGS84, -90..90. Omitted if no GPS fix.
         longitude:
           type: number
           format: double
           minimum: -180
           maximum: 180
-          description: Capture field (immutable). Longitude in decimal degrees (WGS84), -180..180. Omitted if the device could not obtain a fix.
+          description: Capture field (immutable). Longitude, WGS84, -180..180. Omitted if no GPS fix.
         accuracyM:
           type: number
           format: double
           minimum: 0
-          description: Capture field (immutable). Reported GPS accuracy radius in metres (>= 0). Omitted if unavailable.
+          description: Capture field (immutable). GPS accuracy radius in metres, >= 0.
         photoPaths:
           type: array
           items:
             $ref: '#/components/schemas/PhotoPath'
           maxItems: 10
-          description: Content field. Bucket-relative Storage paths of attached photos (added via PUT). Max 10.
+          description: Content field. Storage paths of attached photos. Max 10.
         deleted:
           type: boolean
-          description: Present and `true` only on tombstones, which are returned only when the list was requested with `includeDeleted=true`. Omitted on live rows.
-      description: A recorded bird sighting as stored and returned by the server. Optional fields are omitted from the JSON when unset (never sent as explicit null).
+          description: '`true` only on tombstones, returned only when `includeDeleted=true`.'
+      description: A recorded bird sighting. Optional fields are omitted from JSON when unset.
     SightingId:
       type: string
       pattern: ^sgh_[a-z0-9]{26}$
-      description: 'Sighting identifier: `sgh_` + 26-char lowercase ULID. Generated on the client at capture time and used as the idempotency key for sync.'
+      description: 'Sighting identifier: `sgh_` + 26-char lowercase ULID.'
       examples:
         - sgh_01j9z3x8k2m4n6p8r0s2t4v6w8
     SightingPage:
@@ -404,7 +673,7 @@ components:
           anyOf:
             - type: string
             - type: 'null'
-          description: Opaque cursor for the next page; pass back as `?cursor=`. Explicitly `null` on the last page.
+          description: Opaque cursor for the next page. `null` on the last page.
       description: A page of sightings, newest first.
     SightingSync:
       type: object
@@ -419,7 +688,7 @@ components:
         observedAt:
           type: string
           format: date-time
-          description: Capture field, honoured only on create. Wall-clock instant the bird was observed (UTC). Rejected `invalid` if more than 24h in the future (device clock skew).
+          description: Capture field, honoured only on create. Rejected `invalid` if >24h in the future.
         observedAtOffsetMinutes:
           type: integer
           format: int32
@@ -429,7 +698,7 @@ components:
         clientUpdatedAt:
           type: string
           format: date-time
-          description: Device wall-clock of the last local content edit (UTC), monotonic per record. Drives last-write-wins. Rejected `invalid` if more than 24h in the future.
+          description: LWW arbiter. Rejected `invalid` if >24h in the future.
         birdId:
           allOf:
             - $ref: '#/components/schemas/BirdId'
@@ -447,37 +716,28 @@ components:
           format: double
           minimum: -90
           maximum: 90
-          description: Capture field, honoured only on create. Latitude -90..90.
+          description: Capture field, honoured only on create. -90..90.
         longitude:
           type: number
           format: double
           minimum: -180
           maximum: 180
-          description: Capture field, honoured only on create. Longitude -180..180.
+          description: Capture field, honoured only on create. -180..180.
         accuracyM:
           type: number
           format: double
           minimum: 0
-          description: Capture field, honoured only on create. GPS accuracy radius in metres, >= 0.
+          description: Capture field, honoured only on create. >= 0.
         deleted:
           type: boolean
-          description: Tombstone flag. `true` marks the sighting deleted; omitted or `false` marks it live, so a later edit with a newer clientUpdatedAt un-deletes. Arbitrated by clientUpdatedAt like the content fields.
+          description: Tombstone flag. Arbitrated by clientUpdatedAt like content fields.
       description: |-
-        One sighting queued offline and pushed during sync. `id` is client-generated and
-        is the idempotency key: re-sending the same id is safe.
-
-        The batch upsert is scoped to the caller. If the id does not exist, the row is
-        created and owned by the caller. If it exists and the caller owns it, the
-        mutable content fields (birdId, quickNote, notes) are overwritten only when the
-        incoming clientUpdatedAt is strictly newer than the stored one (last-write-wins);
-        otherwise the item is reported `stale` and nothing changes. Capture fields
-        (observedAt, offset, coordinates) are set at creation and never changed by a
-        later sync, so a re-send cannot mutate them. Photos are not handled here (see
-        PUT). If the id exists but is owned by another user, the item is rejected
-        `invalid` with code `id_conflict` — a batch never writes into another user's row.
-
-        A `deleted: true` item tombstones the row under the same last-write-wins rule;
-        a later item with a newer clientUpdatedAt and no `deleted` flag un-deletes it.
+        One sighting queued offline. `id` is client-generated and is the idempotency
+        key. Upsert is scoped to the caller: unknown id creates; known id owned by the
+        caller updates content fields last-write-wins on clientUpdatedAt (older =
+        `stale`, no change); id owned by another user is rejected `invalid`/`id_conflict`.
+        Capture fields are honoured only on create. `deleted: true` tombstones under
+        the same LWW rule.
     SightingUpdate:
       type: object
       required:
@@ -487,7 +747,7 @@ components:
         clientUpdatedAt:
           type: string
           format: date-time
-          description: Device wall-clock of this edit (UTC), monotonic per record. The LWW arbiter; a value older than the stored one yields 409.
+          description: LWW arbiter. Older than stored yields 409.
         birdId:
           allOf:
             - $ref: '#/components/schemas/BirdId'
@@ -505,15 +765,11 @@ components:
           items:
             $ref: '#/components/schemas/PhotoPath'
           maxItems: 10
-          description: The full set of photo paths after this update. Each must belong to the caller (path prefixed with their auth uid and this sighting's id). Max 10.
+          description: Full set of photo paths after this update. Each must belong to the caller. Max 10.
       description: |-
-        The complete desired state of a sighting's mutable content fields. This is a full
-        replace: a content field omitted from the request is cleared. Capture facts
-        (observedAt, offset, coordinates) are immutable and are not part of this model.
-        `clientUpdatedAt` is the device wall-clock of this edit (monotonic per record)
-        and is compared against the stored value: a stale PUT (older than stored) is
-        rejected 409 so the interactive UI can prompt the user to refresh, rather than
-        silently dropping their edit.
+        Full replace of a sighting's mutable content fields; an omitted field is
+        cleared. Capture facts are immutable and not part of this model.
+        `clientUpdatedAt` older than the stored value yields 409.
     StaleUpdate:
       type: object
       required:
@@ -524,16 +780,16 @@ components:
           type: string
           enum:
             - stale_update
-          description: 'Stable slug: always `stale_update` for this response.'
+          description: Always `stale_update`.
         current:
           allOf:
             - $ref: '#/components/schemas/Sighting'
-          description: The current server state of the sighting the caller tried to update.
-      description: Returned by PUT /api/sightings/{id} when the submitted clientUpdatedAt is older than the stored one. The body is the current server state so an interactive UI can reconcile and prompt the user to refresh rather than silently losing their edit.
+          description: Current server state of the sighting.
+      description: Returned by PUT /api/sightings/{id} when clientUpdatedAt is older than stored. Body is the current server state for reconciliation.
     UserId:
       type: string
       pattern: ^usr_[a-z0-9]{26}$
-      description: 'User identifier: `usr_` + 26-char lowercase ULID. Generated server-side on first authenticated request.'
+      description: 'User identifier: `usr_` + 26-char lowercase ULID.'
       examples:
         - usr_01j9z3x8k2m4n6p8r0s2t4v6w8
   securitySchemes:
