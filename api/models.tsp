@@ -4,7 +4,7 @@ using Http;
 
 namespace Birb;
 
-// Identifiers: Paddle/Stripe-style prefixed lowercase ULIDs (k-sortable).
+// Identifiers: Cuvva/Paddle/Stripe-style prefixed lowercase ULIDs (k-sortable).
 
 @doc("Sighting identifier: `sgh_` + 26-char lowercase ULID.")
 @pattern("^sgh_[a-z0-9]{26}$")
