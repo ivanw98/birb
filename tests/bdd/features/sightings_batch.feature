@@ -4,8 +4,6 @@ Feature: Batch-syncing sightings (POST /api/sightings/batch)
   New ids are created; existing ids owned by the caller have their mutable
   content fields updated last-write-wins on clientUpdatedAt; capture fields
   are never mutated after creation; an id owned by another user is rejected.
-  The request as a whole always returns 200 for a well-formed, authenticated
-  call — per-item outcomes live in the body.
 
   Background:
     Given I am authenticated as "alice"

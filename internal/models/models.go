@@ -123,6 +123,32 @@ type SightingPage struct {
 	NextCursor *string    `json:"nextCursor"`
 }
 
+// GroupMember is one member of a group as exposed to the others: display name only, never an email.
+type GroupMember struct {
+	ID      string  `json:"id"`
+	Name    *string `json:"name,omitempty"`
+	IsOwner bool    `json:"isOwner"`
+}
+
+// Group is a named group with its full membership. IsOwner is per-caller; GroupMember.IsOwner is per-member.
+type Group struct {
+	ID       string        `json:"id"`
+	Name     string        `json:"name"`
+	JoinCode string        `json:"joinCode"`
+	IsOwner  bool          `json:"isOwner"`
+	Members  []GroupMember `json:"members"`
+}
+
+// CreateGroupRequest is the POST /api/groups body.
+type CreateGroupRequest struct {
+	Name string `json:"name"`
+}
+
+// JoinGroupRequest is the POST /api/groups/join body; the code is normalised server-side.
+type JoinGroupRequest struct {
+	Code string `json:"code"`
+}
+
 // APIError is the wire error envelope returned by every operation.
 type APIError struct {
 	Code    string `json:"code"`

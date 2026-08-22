@@ -91,7 +91,7 @@ func TestBatchSyncOK(t *testing.T) {
 		require.Len(t, req.Sightings, 1)
 		return models.BatchSyncResponse{Results: []models.BatchItemResult{{ID: req.Sightings[0].ID, Status: models.StatusCreated}}}, nil
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 
 	rr := do(t, srv, http.MethodPost, "/sightings/batch", `{"sightings":[{"id":"sgh_1","observedAt":"2026-07-08T06:42:11Z","observedAtOffsetMinutes":60,"clientUpdatedAt":"2026-07-08T06:42:11Z"}]}`)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -101,7 +101,7 @@ func TestBatchSyncOK(t *testing.T) {
 }
 
 func TestBatchSyncMalformedJSON(t *testing.T) {
-	srv := server(New(&mockSightingSvc{}, nil, nil, testLogger()))
+	srv := server(New(&mockSightingSvc{}, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPost, "/sightings/batch", `{not json`)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), models.CodeBadRequest)
@@ -113,7 +113,7 @@ func TestBatchSyncOversizedBodyIs413(t *testing.T) {
 		t.Error("service must not be called for an oversized body")
 		return models.BatchSyncResponse{}, nil
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 
 	big := `{"sightings":[{"quickNote":"` + strings.Repeat("x", 1<<20) + `"}]}`
 	rr := do(t, srv, http.MethodPost, "/sightings/batch", big)
@@ -125,7 +125,7 @@ func TestBatchSyncTooLargeMapsTo400(t *testing.T) {
 	m := &mockSightingSvc{batch: func(context.Context, models.User, models.BatchSyncRequest) (models.BatchSyncResponse, error) {
 		return models.BatchSyncResponse{}, models.ErrBatchTooLarge("too many")
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPost, "/sightings/batch", `{"sightings":[]}`)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), models.CodeBatchTooLarge)
@@ -141,7 +141,7 @@ func TestListOK(t *testing.T) {
 		assert.False(t, includeDeleted, "defaults to live rows only")
 		return models.SightingPage{Items: []models.Sighting{{ID: "sgh_1", PhotoPaths: []string{}}}, NextCursor: &next}, nil
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?limit=10&cursor=abc", "")
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"nextCursor":"cursor123"`)
@@ -152,20 +152,20 @@ func TestListIncludeDeleted(t *testing.T) {
 		assert.True(t, includeDeleted)
 		return models.SightingPage{Items: []models.Sighting{}}, nil
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?includeDeleted=true", "")
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
 func TestListBadLimit(t *testing.T) {
-	srv := server(New(&mockSightingSvc{}, nil, nil, testLogger()))
+	srv := server(New(&mockSightingSvc{}, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?limit=abc", "")
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), models.CodeValidationFailed)
 }
 
 func TestListBadIncludeDeleted(t *testing.T) {
-	srv := server(New(&mockSightingSvc{}, nil, nil, testLogger()))
+	srv := server(New(&mockSightingSvc{}, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?includeDeleted=banana", "")
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), models.CodeValidationFailed)
@@ -175,7 +175,7 @@ func TestListPropagatesServiceError(t *testing.T) {
 	m := &mockSightingSvc{list: func(context.Context, models.User, int, string, bool) (models.SightingPage, error) {
 		return models.SightingPage{}, models.ErrValidation("bad cursor")
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/sightings?cursor=bad", "")
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -188,7 +188,7 @@ func TestUpdateOK(t *testing.T) {
 		assert.NotNil(t, upd.PhotoPaths)
 		return models.Sighting{ID: id, PhotoPaths: []string{}}, nil
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPut, "/sightings/sgh_1", `{"clientUpdatedAt":"2026-07-08T06:42:11Z","photoPaths":[]}`)
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -198,7 +198,7 @@ func TestUpdateStaleReturns409WithCurrent(t *testing.T) {
 	m := &mockSightingSvc{update: func(context.Context, models.User, string, models.SightingUpdate) (models.Sighting, error) {
 		return models.Sighting{}, &models.StaleError{Current: current}
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPut, "/sightings/sgh_1", `{"clientUpdatedAt":"2020-01-01T00:00:00Z","photoPaths":[]}`)
 	assert.Equal(t, http.StatusConflict, rr.Code)
 	var body struct {
@@ -214,13 +214,13 @@ func TestUpdateNotFoundMapsTo404(t *testing.T) {
 	m := &mockSightingSvc{update: func(context.Context, models.User, string, models.SightingUpdate) (models.Sighting, error) {
 		return models.Sighting{}, models.ErrNotFound("nope")
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPut, "/sightings/sgh_1", `{"clientUpdatedAt":"2026-07-08T06:42:11Z","photoPaths":[]}`)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestUpdateMalformedJSON(t *testing.T) {
-	srv := server(New(&mockSightingSvc{}, nil, nil, testLogger()))
+	srv := server(New(&mockSightingSvc{}, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPut, "/sightings/sgh_1", `{bad`)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -229,7 +229,7 @@ func TestUpdateInvalidPhotoPathMapsTo400(t *testing.T) {
 	m := &mockSightingSvc{update: func(context.Context, models.User, string, models.SightingUpdate) (models.Sighting, error) {
 		return models.Sighting{}, models.ErrInvalidPhotoPath("bad path")
 	}}
-	srv := server(New(m, nil, nil, testLogger()))
+	srv := server(New(m, nil, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodPut, "/sightings/sgh_1", `{"clientUpdatedAt":"2026-07-08T06:42:11Z","photoPaths":["x"]}`)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), models.CodeInvalidPhotoPath)
@@ -245,7 +245,7 @@ func birdSvc() *mockBirdSvc {
 }
 
 func TestBirdsOKSetsETag(t *testing.T) {
-	srv := server(New(nil, birdSvc(), nil, testLogger()))
+	srv := server(New(nil, birdSvc(), nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/birds", "")
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.NotEmpty(t, rr.Header().Get("ETag"))
@@ -255,7 +255,7 @@ func TestBirdsOKSetsETag(t *testing.T) {
 func TestBirdsConditional304(t *testing.T) {
 	bs := birdSvc()
 	_, etag, _ := bs.list(context.Background())
-	srv := server(New(nil, bs, nil, testLogger()))
+	srv := server(New(nil, bs, nil, nil, testLogger()))
 
 	req := httptest.NewRequest(http.MethodGet, "/birds", nil)
 	req.Header.Set("If-None-Match", etag)
@@ -266,7 +266,7 @@ func TestBirdsConditional304(t *testing.T) {
 }
 
 func TestBirdsStaleETagStill200(t *testing.T) {
-	srv := server(New(nil, birdSvc(), nil, testLogger()))
+	srv := server(New(nil, birdSvc(), nil, nil, testLogger()))
 	req := httptest.NewRequest(http.MethodGet, "/birds", nil)
 	req.Header.Set("If-None-Match", `"deadbeef"`)
 	rr := httptest.NewRecorder()
@@ -278,7 +278,7 @@ func TestBirdsServiceError500(t *testing.T) {
 	m := &mockBirdSvc{list: func(context.Context) ([]models.Bird, string, error) {
 		return nil, "", models.ErrInternal("boom")
 	}}
-	srv := server(New(nil, m, nil, testLogger()))
+	srv := server(New(nil, m, nil, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/birds", "")
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }
@@ -290,7 +290,7 @@ func TestMeOK(t *testing.T) {
 		assert.Equal(t, "auth-uuid", authID)
 		return models.Me{ID: "usr_1", Email: "a@b.co", Tier: models.TierFree, DisplayName: ptr("Al")}, nil
 	}}
-	srv := server(New(nil, nil, m, testLogger()))
+	srv := server(New(nil, nil, m, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/me", "")
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"tier":"free"`)
@@ -300,7 +300,7 @@ func TestMeServiceError(t *testing.T) {
 	m := &mockAccountSvc{me: func(context.Context, string) (models.Me, error) {
 		return models.Me{}, models.ErrInternal("db")
 	}}
-	srv := server(New(nil, nil, m, testLogger()))
+	srv := server(New(nil, nil, m, nil, testLogger()))
 	rr := do(t, srv, http.MethodGet, "/me", "")
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }

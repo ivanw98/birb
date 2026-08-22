@@ -4,12 +4,10 @@ package auth
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/oklog/ulid/v2"
 
 	"github.com/ivanw98/birb/internal/models"
 )
@@ -107,7 +105,7 @@ func displayName(tok jwt.Token) *string {
 
 // generateUserID mints a fresh `usr_` prefixed lowercase ULID.
 func generateUserID() string {
-	return "usr_" + strings.ToLower(ulid.Make().String())
+	return models.NewID(models.PrefixUser).String()
 }
 
 // ToUser projects verified claims onto a new user record (id filled by newID).
