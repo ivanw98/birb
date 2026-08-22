@@ -35,7 +35,7 @@ scalar PhotoPath extends string;
 @doc("Machine-readable error.")
 @error
 model ApiError {
-  @doc("Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`.")
+  @doc("Stable error slug, e.g. `unknown_bird_id`, `batch_too_large`, `id_conflict`, `stale_update`, `validation_failed`, `unknown_join_code`, `group_full`, `group_limit_reached`, `owner_cannot_leave`, `not_group_owner`, `join_rate_limited`.")
   code: string;
 
   @doc("Human-readable explanation. Do not parse.")
@@ -289,6 +289,36 @@ model JoinGroupRequest {
   @doc("Join code in any casing/separators — server normalises before lookup.")
   @maxLength(32)
   code: string;
+}
+
+// Feed — the read-only projection of a co-member's sighting.
+
+@doc("One co-member's sighting, as exposed to everyone sharing a group with them.")
+model FeedItem {
+  @doc("The projected sighting. Never one of the caller's own.")
+  sightingId: SightingId;
+
+  @doc("Identified species, if the observer chose one.")
+  birdId?: BirdId;
+
+  @doc("Observer's display name. Omitted if unset.")
+  @maxLength(200)
+  authorName?: string;
+
+  @doc("UTC instant the bird was observed.")
+  observedAt: utcDateTime;
+
+  @doc("Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km.")
+  @maxLength(200)
+  placeName?: string;
+}
+
+@doc("A page of co-members' sightings from the last 7 days, newest first.")
+model FeedPage {
+  items: FeedItem[];
+
+  @doc("Opaque cursor for the next page. `null` on the last page.")
+  nextCursor: string | null;
 }
 
 // Account — GET /api/me. Also triggers just-in-time user provisioning.

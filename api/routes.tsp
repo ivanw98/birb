@@ -143,3 +143,29 @@ interface Groups {
   @delete
   @route("/{id}/members/{userId}")
   removeMember(@path id: GroupId, @path userId: UserId): GroupNoContent | ApiError;
+}
+
+// ---------------------------------------------------------------------------
+
+@doc("The read-only feed of sightings by everyone the caller shares a group with.")
+@route("/feed")
+interface Feed {
+  @doc("""
+  List co-members' sightings from the last 7 days, newest first, via keyset
+  pagination. Pass `nextCursor` back as `cursor`. The caller's own sightings
+  are never included, soft-deleted rows are excluded, and a caller in no
+  groups gets an empty page.
+  """)
+  @get
+  list(
+    @doc("Page size, 1..100. Defaults to 25.")
+    @minValue(1)
+    @maxValue(100)
+    @query
+    limit?: int32,
+
+    @doc("Opaque cursor from a previous page's `nextCursor`.")
+    @query
+    cursor?: string,
+  ): FeedPage | ApiError;
+}
