@@ -41,7 +41,7 @@ export function SightingList({ onOpen, onDelete }: SightingListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-3 p-4">
         {sightings.map((sighting) => (
           <SightingCard

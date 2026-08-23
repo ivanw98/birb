@@ -44,7 +44,7 @@ export function SightingsView() {
   );
 
   return (
-    <div className="flex flex-col gap-4 pt-4">
+    <div className="flex flex-col gap-4 px-4 pt-4">
       {deleted && (
         <div className="self-center">
           <StatusBanner
