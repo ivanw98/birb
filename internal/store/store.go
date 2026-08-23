@@ -5,6 +5,7 @@ import (
 	"context"
 	"reflect"
 	"strings"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
@@ -58,6 +59,14 @@ type GroupRepository interface {
 	CountMembers(ctx context.Context, groupID string) (int, error)
 	CountMemberships(ctx context.Context, userID string) (int, error)
 	CountOwned(ctx context.Context, userID string) (int, error)
+	// CoMemberIDs returns the IDs of all members of the group the user belongs to.
+	CoMemberIDs(ctx context.Context, userID string) ([]string, error)
+}
+
+type FeedRepository interface {
+	// ListPage is the page CTE plus the users join and the place.
+	ListPage(ctx context.Context, authorIDs []string, since, until time.Time,
+		cursor *models.Cursor, limit int) ([]models.FeedItem, error)
 }
 
 // UpsertOutcome reports how a batch upsert resolved for one sighting.
@@ -88,6 +97,7 @@ type Store struct {
 	Birds     *BirdStore
 	Sightings *SightingStore
 	Groups    *GroupStore
+	Feed      *FeedStore
 }
 
 // New builds the repository set over db.
@@ -97,6 +107,7 @@ func New(db *sqlx.DB) *Store {
 		Birds:     NewBirdStore(db),
 		Sightings: NewSightingStore(db),
 		Groups:    NewGroupStore(db),
+		Feed:      NewFeedStore(db),
 	}
 }
 

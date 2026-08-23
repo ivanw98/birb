@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -75,6 +77,19 @@ func InitializeScenario(env *harness) func(*godog.ScenarioContext) {
 		sc.Step(`^"([^"]*)" is a member of (\d+) groups$`, s.userIsMemberOfNGroups)
 		sc.Step(`^"([^"]*)" owns (\d+) groups$`, s.userOwnsNGroups)
 
+		// --- Given: feed fixtures ---
+		// Time-relative on purpose: the feed's window is seven days from now, and every
+		// other fixture in this suite is pinned to 2025-06-01, well outside it.
+		sc.Step(`^a sighting by "([^"]*)" observed (\d+) (hour|day)s? ago exists as "([^"]*)"$`, s.sightingAgo)
+		sc.Step(`^a sighting by "([^"]*)" observed (\d+) (hour|day)s? from now exists as "([^"]*)"$`, s.sightingAhead)
+		sc.Step(`^a sighting by "([^"]*)" at ([-\d.]+), ([-\d.]+) observed (\d+) hours? ago exists as "([^"]*)"$`, s.sightingAtCoords)
+		sc.Step(`^"([^"]*)" has (\d+) sightings from the last week$`, s.userHasNSightings)
+		sc.Step(`^the sighting "([^"]*)" is soft deleted$`, s.sightingSoftDeleted)
+		sc.Step(`^the sighting "([^"]*)" has notes "([^"]*)" and quick note "([^"]*)"$`, s.sightingHasNotes)
+		sc.Step(`^a place "([^"]*)" exists at ([-\d.]+), ([-\d.]+)$`, s.placeExists)
+		sc.Step(`^a place "([^"]*)" exists at ([-\d.]+), ([-\d.]+) with population (\d+)$`, s.placeExistsWithPopulation)
+		sc.Step(`^there are no places$`, s.noPlaces)
+
 		// --- Given: request building ---
 		sc.Step(`^I set header "([^"]*)" to "([^"]*)"$`, s.setHeader)
 		sc.Step(`^I set query param "([^"]*)" to "([^"]*)"$`, s.setQueryParam)
@@ -94,6 +109,7 @@ func InitializeScenario(env *harness) func(*godog.ScenarioContext) {
 		sc.Step(`^the response body should contain$`, s.bodyContains)
 		sc.Step(`^the response field "([^"]*)" should be "([^"]*)"$`, s.field)
 		sc.Step(`^the response field "([^"]*)" should be absent$`, s.fieldAbsent)
+		sc.Step(`^the response field "([^"]*)" should not be "([^"]*)"$`, s.fieldNot)
 		sc.Step(`^the response field "([^"]*)" should match "([^"]*)"$`, s.fieldMatch)
 		sc.Step(`^the response field "([^"]*)" should have (\d+) items$`, s.fieldLength)
 		sc.Step(`^the response should not contain "([^"]*)"$`, s.bodyNotContains)
@@ -380,6 +396,21 @@ func (s *steps) field(ctx context.Context, path, value string) error {
 	expected := coerceExpected(w.interpolate(value))
 	if !fieldsEqual(actual, expected) {
 		return fmt.Errorf("field %q: expected %#v, got %#v", path, expected, actual)
+	}
+	return nil
+}
+
+// fieldNot asserts a field is present but holds something other than the given value.
+// Presence is required on purpose: "nextCursor should not be null" must fail if the
+// field is missing entirely, not pass by absence.
+func (s *steps) fieldNot(ctx context.Context, path, value string) error {
+	w := worldFrom(ctx)
+	actual, ok := getPath(w.json, path)
+	if !ok {
+		return fmt.Errorf("field %q not found in response: %s", path, string(w.body))
+	}
+	if fieldsEqual(actual, coerceExpected(w.interpolate(value))) {
+		return fmt.Errorf("field %q should not be %s: %s", path, value, string(w.body))
 	}
 	return nil
 }
@@ -671,6 +702,127 @@ func (s *steps) userOwnsNGroups(ctx context.Context, username string, n int) err
 		if _, err := s.insertGroup(ctx, name, username, joinCodeForName(name)); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// --- Given: feed fixtures ---
+
+// insertSighting writes one fixture sighting.
+func (s *steps) insertSighting(ctx context.Context, w *World, author, name string, offset time.Duration, lat, lon *float64) error {
+	authorID, err := s.upsertUser(ctx, author, nil)
+	if err != nil {
+		return err
+	}
+	id := idForName(models.PrefixSighting, name)
+	observedAt := time.Now().Add(offset)
+
+	if _, err := s.env.db.ExecContext(ctx, `
+		INSERT INTO sightings (id, user_id, observed_at, observed_at_offset_minutes, client_updated_at, latitude, longitude)
+		VALUES ($1, $2, $3, 0, now(), $4, $5)`,
+		id, authorID, observedAt, lat, lon); err != nil {
+		return fmt.Errorf("insert sighting %q: %w", name, err)
+	}
+
+	w.vars["sighting."+name+".id"] = id
+	w.vars["user."+author+".id"] = authorID
+	return nil
+}
+
+func unitDuration(n int, unit string) time.Duration {
+	if unit == "day" {
+		return time.Duration(n) * 24 * time.Hour
+	}
+	return time.Duration(n) * time.Hour
+}
+
+func (s *steps) sightingAgo(ctx context.Context, author string, n int, unit, name string) error {
+	w := worldFrom(ctx)
+	return s.insertSighting(ctx, w, w.interpolate(author), name, -unitDuration(n, unit), nil, nil)
+}
+
+func (s *steps) sightingAhead(ctx context.Context, author string, n int, unit, name string) error {
+	w := worldFrom(ctx)
+	return s.insertSighting(ctx, w, w.interpolate(author), name, unitDuration(n, unit), nil, nil)
+}
+
+func (s *steps) sightingAtCoords(ctx context.Context, author, lat, lon string, n int, name string) error {
+	w := worldFrom(ctx)
+	latitude, err := strconv.ParseFloat(lat, 64)
+	if err != nil {
+		return fmt.Errorf("latitude %q is not a number: %w", lat, err)
+	}
+	longitude, err := strconv.ParseFloat(lon, 64)
+	if err != nil {
+		return fmt.Errorf("longitude %q is not a number: %w", lon, err)
+	}
+	return s.insertSighting(ctx, w, w.interpolate(author), name, -unitDuration(n, "hour"), &latitude, &longitude)
+}
+
+// userHasNSightings fills a feed past a page boundary. Each is an hour older than the
+// last so the keyset order is total - walk is deterministic.
+func (s *steps) userHasNSightings(ctx context.Context, author string, n int) error {
+	w := worldFrom(ctx)
+	author = w.interpolate(author)
+	for i := range n {
+		name := fmt.Sprintf("%s_bulk_%d", author, i)
+		if err := s.insertSighting(ctx, w, author, name, -unitDuration(i+1, "hour"), nil, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *steps) sightingSoftDeleted(ctx context.Context, name string) error {
+	w := worldFrom(ctx)
+	id := idForName(models.PrefixSighting, w.interpolate(name))
+	if _, err := s.env.db.ExecContext(ctx, `UPDATE sightings SET deleted_at = now() WHERE id = $1`, id); err != nil {
+		return fmt.Errorf("soft delete sighting %q: %w", name, err)
+	}
+	return nil
+}
+
+// sightingHasNotes exists so the privacy scenarios can prove the projection drops text
+// the caller never should see.
+func (s *steps) sightingHasNotes(ctx context.Context, name, notes, quickNote string) error {
+	w := worldFrom(ctx)
+	id := idForName(models.PrefixSighting, w.interpolate(name))
+	if _, err := s.env.db.ExecContext(ctx, `UPDATE sightings SET notes = $2, quick_note = $3 WHERE id = $1`,
+		id, notes, quickNote); err != nil {
+		return fmt.Errorf("set notes on sighting %q: %w", name, err)
+	}
+	return nil
+}
+
+// geonamesIDForName keeps fixture places unique without colliding.
+func geonamesIDForName(name string) int {
+	sum := sha256.Sum256([]byte("geonames:" + name))
+	return int(binary.BigEndian.Uint32(sum[:4])>>1) + 1
+}
+
+func (s *steps) placeExists(ctx context.Context, name, lat, lon string) error {
+	return s.savePlace(ctx, name, lat, lon, 500)
+}
+
+func (s *steps) placeExistsWithPopulation(ctx context.Context, name, lat, lon string, population int) error {
+	return s.savePlace(ctx, name, lat, lon, population)
+}
+
+func (s *steps) savePlace(ctx context.Context, name, lat, lon string, population int) error {
+	w := worldFrom(ctx)
+	name = w.interpolate(name)
+	if _, err := s.env.db.ExecContext(ctx, `
+		INSERT INTO places (id, geonames_id, name, latitude, longitude, population, feature_code)
+		VALUES ($1, $2, $3, $4, $5, $6, 'PPL')`,
+		idForName(models.PrefixPlace, name), geonamesIDForName(name), name, lat, lon, population); err != nil {
+		return fmt.Errorf("insert place %q: %w", name, err)
+	}
+	return nil
+}
+
+func (s *steps) noPlaces(ctx context.Context) error {
+	if _, err := s.env.db.ExecContext(ctx, `TRUNCATE places`); err != nil {
+		return fmt.Errorf("truncate places: %w", err)
 	}
 	return nil
 }
