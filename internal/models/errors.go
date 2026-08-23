@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// Stable error slugs — the wire `code` values clients branch on; do not rename casually.
+// Stable error slugs: the wire `code` values clients branch on; do not rename casually.
 const (
 	CodeUnknownBird      = "unknown_bird_id"
 	CodeIDConflict       = "id_conflict"

@@ -17,7 +17,7 @@ export interface QuickTagProps {
 export function QuickTag({ sightingId }: QuickTagProps) {
   const sightingQuerier = () => db.sightings.get(sightingId);
   const row = useLiveQuery(sightingQuerier, [sightingId]);
-  // A tombstoned row is gone as far as any editor is concerned — a quick-tag
+  // A tombstoned row is gone as far as any editor is concerned; a quick-tag
   // write against it would be lost when the delete syncs.
   return row && !row.deleted ? <QuickTagForm key={row.id} row={row} /> : null;
 }

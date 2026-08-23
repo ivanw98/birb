@@ -42,7 +42,7 @@ export default function App() {
   useEffect(() => {
     // keep the offline species cache warm
     void refreshBirds().catch(() => {});
-    // sweep synced tombstones — no Undo banner can exist yet on a fresh load
+    // sweep synced tombstones: no Undo banner can exist yet on a fresh load
     void gcSyncedTombstones();
     // app start
     void syncNow();

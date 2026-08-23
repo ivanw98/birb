@@ -11,8 +11,8 @@ export interface MetaEntry {
 export interface LocalPhoto {
   id?: number; // auto-increment
   sightingId: string;
-  fileName: string; // "<ulid>.jpg" — a path segment, not a full path
-  blob: Blob; // compressed JPEG, ~200KB — NEVER the camera original
+  fileName: string; // "<ulid>.jpg" (a path segment, not a full path)
+  blob: Blob; // compressed JPEG, ~200KB; NEVER the camera original
   uploaded: 0 | 1; // number, not boolean: IndexedDB can't index booleans
 }
 

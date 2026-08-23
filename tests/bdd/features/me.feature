@@ -21,7 +21,7 @@ Feature: Account profile (GET /api/me)
   Scenario: A brand-new identity is provisioned by its very first call
     # No prior request has ever been made for this identity in this scenario's
     # (freshly truncated) database, so the auth middleware must create the
-    # user row inline, before the handler runs — not GET /me itself.
+    # user row inline, before the handler runs, not GET /me itself.
     Given I am authenticated as "brand-new-birder"
     When I make a GET call to /api/me
     Then I should receive a 200 JSON response

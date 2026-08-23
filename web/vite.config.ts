@@ -12,7 +12,7 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       manifest: {
-        name: "birb — bird sightings",
+        name: "birb: bird sightings",
         short_name: "birb",
         description: "Record bird sightings in the field, even offline.",
         theme_color: "#1e40af",
@@ -33,7 +33,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         // The SW caches the APP; Dexie caches the DATA. API responses are
-        // authed and personal — and the SPA navigation fallback must never
+        // authed and personal. The SPA navigation fallback must never
         // swallow /api requests.
         navigateFallbackDenylist: [/^\/api\//],
       },

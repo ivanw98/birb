@@ -50,7 +50,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated — bounded by the membership and member caps. */
+        /** @description List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated: bounded by the membership and member caps. */
         get: operations["Groups_list"];
         put?: never;
         /** @description Create a group; the caller becomes owner and first member and the server mints the join code. NOT idempotent, so clients must disable the control while in flight. `group_limit_reached` at the owned-groups cap. */
@@ -104,7 +104,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave` — they delete instead, since ownership never transfers. */
+        /** @description Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave`; they delete instead, since ownership never transfers. */
         post: operations["Groups_leave"];
         delete?: never;
         options?: never;
@@ -314,7 +314,7 @@ export interface components {
         };
         /** @description Request to join a group by code. */
         JoinGroupRequest: {
-            /** @description Join code in any casing/separators — server normalises before lookup. */
+            /** @description Join code in any casing/separators; server normalises before lookup. */
             code: string;
         };
         /** @description The authenticated caller's profile. */
@@ -513,7 +513,7 @@ export interface operations {
                     "application/json": components["schemas"]["Bird"][];
                 };
             };
-            /** @description 304 Not Modified — If-None-Match matched the current ETag; no body. */
+            /** @description 304 Not Modified: If-None-Match matched the current ETag; no body. */
             304: {
                 headers: {
                     [name: string]: unknown;
@@ -607,7 +607,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 201 Created — the new group, including the server-minted join code. */
+            /** @description 201 Created: the new group, including the server-minted join code. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -671,7 +671,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            /** @description 204 No Content: the membership or group is gone (or was already gone); no body. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -700,7 +700,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            /** @description 204 No Content: the membership or group is gone (or was already gone); no body. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -730,7 +730,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 204 No Content — the membership or group is gone (or was already gone); no body. */
+            /** @description 204 No Content: the membership or group is gone (or was already gone); no body. */
             204: {
                 headers: {
                     [name: string]: unknown;

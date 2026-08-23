@@ -38,8 +38,8 @@ export type RemovePhotoResult =
 // exists, so this works offline and can't conflict.
 //
 // Removing an ATTACHED photo needs the network. photoPaths can only change via
-// PUT — toWire() deliberately omits photoPaths because the batch endpoint
-// rejects them — so a removal written locally and marked pending would never
+// PUT: toWire() deliberately omits photoPaths because the batch endpoint
+// rejects them, so a removal written locally and marked pending would never
 // reach the server. Rather than lose it silently, say we can't do it yet.
 export async function removePhoto(
   row: LocalSighting,
@@ -90,14 +90,14 @@ export async function removePhoto(
     }
     return { outcome: "error", message: `remove failed: ${response.status}` };
   } catch {
-    // navigator.onLine lied — we never reached the server, so nothing changed.
+    // navigator.onLine lied: we never reached the server, so nothing changed.
     return { outcome: "offline" };
   }
 }
 
 // A 404 for a row we hold as synced means it was tombstoned on another device
-// (PUT filters tombstones). Adopt that locally — the next pull would conclude
-// the same — so the row leaves the list immediately and Undo can restore it.
+// (PUT filters tombstones). Adopt that locally (the next pull would conclude
+// the same), so the row leaves the list immediately and Undo can restore it.
 async function adoptRemoteDeletion(id: string): Promise<void> {
   await db.sightings.update(id, {
     deleted: 1,

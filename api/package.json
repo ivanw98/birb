@@ -2,7 +2,7 @@
   "name": "@birb/api-spec",
   "version": "0.1.0",
   "private": true,
-  "description": "TypeSpec API definition for birb — compiles to openapi/openapi.yaml",
+  "description": "TypeSpec API definition for birb. Compiles to openapi/openapi.yaml",
   "type": "module",
   "scripts": {
     "build": "tsp compile .",

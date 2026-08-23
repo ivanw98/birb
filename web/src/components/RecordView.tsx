@@ -6,7 +6,7 @@ import type { LocalSighting } from "@/types";
 
 type CaptureBanner = { tone: "info" | "success"; message: string };
 
-// Tone and message are one decision, so derive them together — as two
+// Tone and message are one decision, so derive them together: as two
 // separate ternaries in the JSX they could drift apart.
 function captureBannerFor(last: LocalSighting | null): CaptureBanner | null {
   if (!last) return null;
@@ -14,7 +14,7 @@ function captureBannerFor(last: LocalSighting | null): CaptureBanner | null {
     return {
       tone: "info",
       message:
-        "Saved without location — turn on location access to add coordinates next time.",
+        "Saved without location. Turn on location access to add coordinates next time.",
     };
   }
   return { tone: "success", message: "Sighting saved with location." };
@@ -62,7 +62,7 @@ export function RecordView({
       {last && <QuickTag sightingId={last.id} />}
       {saveError && !bannerDismissed && (
         <StatusBanner tone="danger" onDismiss={onDismissBanner}>
-          Could not save this sighting — your device may be low on storage.
+          Could not save this sighting. Your device may be low on storage.
           Please try again.
         </StatusBanner>
       )}
