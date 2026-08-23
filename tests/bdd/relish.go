@@ -847,7 +847,7 @@ func errAt(path, format string, args ...any) error {
 	return fmt.Errorf("%s: %s", path, fmt.Sprintf(format, args...))
 }
 
-// World is per-scenario state — pending request config, identity, last response, and interpolation variables — reset fresh by the Before hook so scenarios never see each other's state.
+// World is per-scenario state (pending request config, identity, last response, and interpolation variables), reset fresh by the Before hook so scenarios never see each other's state.
 type World struct {
 	// pending request state: headers (including Authorization) persist across calls in a scenario; query is one-shot, cleared after every call (see afterCall).
 	headers map[string]string

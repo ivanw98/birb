@@ -74,7 +74,7 @@ func TestBirdsETagDistinguishesNilVsEmptyCode(t *testing.T) {
 	withNil := []Bird{{ID: "brd_1", CommonName: "X", ScientificName: "Y"}}
 	withEmpty := []Bird{{ID: "brd_1", CommonName: "X", ScientificName: "Y", EbirdCode: ptr("")}}
 	// Both hash the same here (nil and "" both contribute no bytes before the
-	// separator) — documents the intended behaviour rather than asserting a bug.
+	// separator); this documents the intended behaviour rather than asserting a bug.
 	assert.Equal(t, BirdsETag(withNil), BirdsETag(withEmpty))
 }
 

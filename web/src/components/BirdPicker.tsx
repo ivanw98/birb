@@ -92,8 +92,10 @@ export function BirdPicker({ birdId, onChange }: BirdPickerProps) {
             onClick={() => onChange(bird.id)}
             className="h-14 rounded-md border border-slate-400 px-4 text-left text-lg text-ink"
           >
-            {bird.commonName} —{" "}
-            <span className="italic text-muted">{bird.scientificName}</span>
+            {bird.commonName}{" "}
+            <span className="italic text-muted">
+              ({bird.scientificName})
+            </span>
           </button>
         ))}
       </div>

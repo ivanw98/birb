@@ -26,7 +26,7 @@ func UserFrom(ctx context.Context) (models.User, bool) {
 	return u, ok
 }
 
-// MustUser returns the authenticated user or panics — use only in handlers
+// MustUser returns the authenticated user or panics; use only in handlers
 // mounted behind Authenticator.Middleware, where presence is guaranteed.
 func MustUser(ctx context.Context) models.User {
 	u, ok := UserFrom(ctx)
