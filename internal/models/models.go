@@ -139,6 +139,21 @@ type Group struct {
 	Members  []GroupMember `json:"members"`
 }
 
+// FeedItem is a single feed item, as exposed to the caller.
+type FeedItem struct {
+	SightingID string    `json:"sightingId"`
+	BirdID     *string   `json:"birdId,omitempty"`
+	AuthorName *string   `json:"authorName,omitempty"`
+	ObservedAt time.Time `json:"observedAt"`
+	PlaceName  *string   `json:"placeName,omitempty"`
+}
+
+// FeedPage is a page of feed items, as exposed to the caller.
+type FeedPage struct {
+	Items      []FeedItem `json:"items"`
+	NextCursor *string    `json:"nextCursor"`
+}
+
 // CreateGroupRequest is the POST /api/groups body.
 type CreateGroupRequest struct {
 	Name string `json:"name"`

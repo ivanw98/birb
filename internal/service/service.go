@@ -49,6 +49,11 @@ type AccountService interface {
 	Me(ctx context.Context, authID string) (models.Me, error)
 }
 
+// FeedService serves the caller's feed.
+type FeedService interface {
+	GetFeed(ctx context.Context, user models.User, limit int, cursor string) (models.FeedPage, error)
+}
+
 // Sightings is the concrete SightingService.
 type Sightings struct {
 	sightings store.SightingRepository
@@ -101,4 +106,23 @@ func (a *Account) Me(ctx context.Context, authID string) (models.Me, error) {
 		return models.Me{}, err
 	}
 	return u.ToMe(), nil
+}
+
+// Feed is the concrete FeedService.
+type Feed struct {
+	feed   store.FeedRepository
+	groups store.GroupRepository
+	// now is injectable so the 7-day boundary is deterministically testable.
+	now func() time.Time
+}
+
+var _ FeedService = (*Feed)(nil)
+
+// NewFeed builds the feed service.
+func NewFeed(feedRepo store.FeedRepository, groupRepo store.GroupRepository) *Feed {
+	return &Feed{
+		feed:   feedRepo,
+		groups: groupRepo,
+		now:    time.Now,
+	}
 }

@@ -40,12 +40,8 @@ type groupMemberRow struct {
 	MemberIsOwner bool    `db:"member_is_owner"`
 }
 
-// listQuery is one statement rather than "my groups, then their members": with no
-// transaction, a group deleted between two queries would come back with an empty
-// member list, contradicting the invariant that the owner is always a member.
-//
-// Every ORDER BY term is load-bearing. joined_at defaults to now(), which is
-// transaction time, so members inserted by one statement tie; member_id breaks it.
+// listQuery fetches groups and members in one query so a concurrent delete cannot return a group with no owner.
+// Keep every ORDER BY field: joined_at can tie within a transaction, so member_id gives a stable order.
 const listQuery = `
 SELECT g.id                          AS group_id,
        g.name,
@@ -96,10 +92,8 @@ func (s *GroupStore) ListForUser(ctx context.Context, userID string, groupID *st
 	return out, nil
 }
 
-// createQuery inserts the group and its owner's membership in one statement. The repo
-// has no transactions; a data-modifying CTE runs to completion regardless of whether
-// the outer query reads it, and the whole statement is atomic. m reads g's RETURNING
-// tuplestore, not the table, which is the documented way to chain two inserts.
+// createQuery inserts the group and owner membership atomically in one statement.
+// The CTE passes the new group ID from its RETURNING result directly into the membership insert.
 const createQuery = `
 WITH g AS (
     INSERT INTO groups (id, name, owner_user_id, join_code)
@@ -245,6 +239,31 @@ func (s *GroupStore) CountMemberships(ctx context.Context, userID string) (int, 
 // CountOwned returns how many groups the user owns, for the owned-groups cap.
 func (s *GroupStore) CountOwned(ctx context.Context, userID string) (int, error) {
 	return s.count(ctx, groupsTable, sq.Eq{"owner_user_id": userID}, "count owned groups")
+}
+
+// CoMemberIDs returns the IDs for everyone across all the caller's groups.
+func (s *GroupStore) CoMemberIDs(ctx context.Context, userID string) ([]string, error) {
+	myGroups := builder.Select("group_id").From(groupMembersTable).Where(sq.Eq{"user_id": userID})
+
+	query, args, err := builder.
+		Select("user_id").
+		Distinct().
+		From(groupMembersTable).
+		Where(myGroups.
+			Prefix("group_id IN (").
+			Suffix(")")).
+		Where(sq.NotEq{"user_id": userID}).
+		ToSql()
+
+	if err != nil {
+		return nil, fmt.Errorf("build group co-member lookup: %w", err)
+	}
+	var rows []string
+	if err := s.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, err
+	}
+
+	return rows, nil
 }
 
 func (s *GroupStore) count(ctx context.Context, table string, where sq.Eq, what string) (int, error) {
