@@ -9,7 +9,7 @@ export const MAX_PHOTOS = 10;
 export interface PhotoCaptureProps {
   sightingId: string;
   remaining: number;
-  // Held shut while the parent has a write of its own in flight — attaching
+  // Held shut while the parent has a write of its own in flight: attaching
   // fires syncNow(), whose PUT would race the parent's.
   disabled?: boolean;
 }
@@ -78,7 +78,7 @@ export function PhotoCapture({
           : busy
             ? "Compressing..."
             : disabled
-              ? "Finishing saving first — one moment."
+              ? "Finishing saving first. One moment."
               : feedback
                 ? `Compressed ${feedback}`
                 : ""}

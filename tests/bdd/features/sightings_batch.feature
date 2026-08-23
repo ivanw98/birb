@@ -128,7 +128,7 @@ Feature: Batch-syncing sightings (POST /api/sightings/batch)
   # internal/store normalizes scanned Sighting/User timestamps back to UTC
   # before they're serialized. The instant is correct but the wire format
   # isn't ("...T09:00:00+01:00" instead of "...T08:00:00Z" on a UTC+1 host).
-  # Contrast models.EncodeCursor, which does call .UTC() before formatting —
+  # Contrast models.EncodeCursor, which does call .UTC() before formatting,
   # so the fix is the same discipline in sightingRow.toModel()/models.User,
   # or centrally via a pgtype.Map with TimestamptzCodec.ScanLocation =
   # time.UTC on the pgx connection. Tagged @WIP (excluded from the default

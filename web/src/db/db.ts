@@ -11,9 +11,18 @@ export interface MetaEntry {
 export interface LocalPhoto {
   id?: number; // auto-increment
   sightingId: string;
-  fileName: string; // "<ulid>.jpg" — a path segment, not a full path
-  blob: Blob; // compressed JPEG, ~200KB — NEVER the camera original
+  fileName: string; // "<ulid>.jpg" (a path segment, not a full path)
+  blob: Blob; // compressed JPEG, ~200KB; NEVER the camera original
   uploaded: 0 | 1; // number, not boolean: IndexedDB can't index booleans
+}
+
+// added in migration(3); id is the wire sightingId
+export interface FeedRow {
+  id: string;
+  birdId?: string;
+  authorName?: string;
+  observedAt: string;
+  placeName?: string;
 }
 
 export class BirbDB extends Dexie {
@@ -22,7 +31,8 @@ export class BirbDB extends Dexie {
   meta!: Table<MetaEntry, string>;
   // added in migration(2)
   photos!: Table<LocalPhoto, number>;
-
+  // added in migration(3)
+  feedItems!: Table<FeedRow, string>;
   constructor() {
     // Call Dexie constructor and pass `birb` as the db name
     super("birb");
@@ -41,6 +51,12 @@ export class BirbDB extends Dexie {
     };
 
     this.version(2).stores(schema_2);
+
+    const schema_3 = {
+      feedItems: "id, observedAt",
+    };
+
+    this.version(3).stores(schema_3);
   }
 }
 
@@ -61,4 +77,8 @@ export function liveSightings(): Promise<LocalSighting[]> {
 export function sightingsForBird(birdID: string): Promise<LocalSighting[]> {
   const filter = (s: LocalSighting) => !s.deleted && s.birdId === birdID;
   return db.sightings.orderBy("observedAt").reverse().filter(filter).toArray();
+}
+
+export function liveFeed(): Promise<FeedRow[]> {
+  return db.feedItems.orderBy("observedAt").reverse().toArray();
 }
