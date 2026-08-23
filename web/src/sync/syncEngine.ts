@@ -2,6 +2,7 @@ import type { LocalSighting } from "@/types";
 import type { components } from "../api/schema";
 import { db } from "@/db/db";
 import { apiClient } from "@/api/client";
+import { refreshFeed } from "@/api/feed";
 import { getAccessToken } from "@/auth/tokenProvider";
 import { photoStore } from "@/photos";
 import { bumpClientUpdatedAt } from "@/lib/time";
@@ -305,6 +306,13 @@ async function runSyncPass(): Promise<SyncResult> {
     const { pushed, failed } = await pushPending();
     await syncPhotos();
     await pullFromServer();
+
+    try {
+      await refreshFeed();
+    } catch {
+      // A stale feed is the feed pane's banner to report, not SyncResult's:
+      // the outer catch would claim queued work failed to sync.
+    }
 
     return finish({ ok: true, pushed, failed });
   } catch {
