@@ -23,12 +23,13 @@ type Handler struct {
 	birds     service.BirdService
 	account   service.AccountService
 	groups    service.GroupService
+	feed      service.FeedService
 	log       *slog.Logger
 }
 
 // New builds the handler.
-func New(s service.SightingService, b service.BirdService, a service.AccountService, g service.GroupService, log *slog.Logger) *Handler {
-	return &Handler{sightings: s, birds: b, account: a, groups: g, log: log}
+func New(s service.SightingService, b service.BirdService, a service.AccountService, g service.GroupService, f service.FeedService, log *slog.Logger) *Handler {
+	return &Handler{sightings: s, birds: b, account: a, groups: g, feed: f, log: log}
 }
 
 // Register mounts the API endpoints on r; callers must apply auth/entitlements middleware to the router group first.
@@ -44,6 +45,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/groups/{id}/leave", h.LeaveGroup)
 	r.Delete("/groups/{id}", h.DeleteGroup)
 	r.Delete("/groups/{id}/members/{userId}", h.RemoveGroupMember)
+	r.Get("/feed", h.GetFeed)
 }
 
 // BatchSync handles POST /api/sightings/batch.
@@ -66,14 +68,10 @@ func (h *Handler) BatchSync(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	user := auth.MustUser(r.Context())
 
-	limit := 0
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil {
-			h.renderError(w, r, models.ErrValidation("limit must be an integer"))
-			return
-		}
-		limit = n
+	limit, err := parseLimitQuery(r)
+	if err != nil {
+		h.renderError(w, r, err)
+		return
 	}
 
 	includeDeleted := false
@@ -228,6 +226,23 @@ func (h *Handler) RemoveGroupMember(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) GetFeed(w http.ResponseWriter, r *http.Request) {
+	user := auth.MustUser(r.Context())
+	cursor := r.URL.Query().Get("cursor")
+	limit, err := parseLimitQuery(r)
+	if err != nil {
+		h.renderError(w, r, err)
+		return
+	}
+
+	feedPage, err := h.feed.GetFeed(r.Context(), user, limit, cursor)
+	if err != nil {
+		h.renderError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, feedPage)
+}
+
 // --- helpers ---
 
 // maxBodyBytes caps request bodies before decoding. The largest legal payload
@@ -281,4 +296,20 @@ func ifNoneMatch(header, current string) bool {
 		}
 	}
 	return false
+}
+
+// parseLimitQuery reads ?limit, returning a rendered-ready validation error rather than
+// a bare one so both callers can hand it straight to renderError.
+func parseLimitQuery(r *http.Request) (int, error) {
+	raw := r.URL.Query().Get("limit")
+	if raw == "" {
+		return 0, nil
+	}
+
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, models.ErrValidation("limit must be an integer")
+	}
+
+	return n, nil
 }

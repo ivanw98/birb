@@ -93,7 +93,8 @@ func newHarness(ctx context.Context, dsn string) (*harness, error) {
 	// A low failure limit so a scenario can trip the rate limiter in three requests
 	// rather than twenty-one.
 	groupSvc := service.NewGroups(repos.Groups, service.NewJoinLimiter(bddJoinFailureLimit, time.Hour))
-	hdl := handler.New(sightingSvc, birdSvc, accountSvc, groupSvc, log)
+	feedSvc := service.NewFeed(repos.Feed, repos.Groups)
+	hdl := handler.New(sightingSvc, birdSvc, accountSvc, groupSvc, feedSvc, log)
 	authn := auth.NewAuthenticator(verifier, repos.Users, log)
 
 	apiSrv := httptest.NewServer(httpapi.NewRouter(hdl, authn, ""))
