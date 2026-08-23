@@ -6,7 +6,7 @@ interface StatusBannerProps {
   tone: Tone;
   children: ReactNode;
   // Renders a standard Dismiss button. Dismissal is always an explicit user
-  // action — the charter forbids timers, not closing.
+  // action: the charter forbids timers, not closing.
   onDismiss?: () => void;
 }
 

@@ -107,7 +107,7 @@ type BatchSyncResponse struct {
 	Results []BatchItemResult `json:"results"`
 }
 
-// SightingUpdate is the PUT /api/sightings/{id} body — a full replace of the
+// SightingUpdate is the PUT /api/sightings/{id} body: a full replace of the
 // mutable content fields.
 type SightingUpdate struct {
 	ClientUpdatedAt time.Time `json:"clientUpdatedAt"`

@@ -3,15 +3,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, liveSightings } from "@/db/db";
 import { deleteSighting, undoDelete } from "@/lib/enrich";
 import { EnrichSighting } from "./EnrichSighting";
+import { FeedView } from "./FeedView";
 import { SightingList } from "./SightingList";
 import { SightingMap } from "./SightingMap";
 import { StatusBanner } from "./StatusBanner";
 
-type SightingsMode = "list" | "map";
+type SightingsMode = "list" | "map" | "feed";
 
 const MODES: Array<{ mode: SightingsMode; label: string }> = [
   { mode: "list", label: "List" },
   { mode: "map", label: "Map" },
+  { mode: "feed", label: "Feed" },
 ];
 
 // The most recent deletion, backing the persistent Undo banner. remote=true
@@ -71,7 +73,7 @@ export function SightingsView() {
       <div
         role="group"
         aria-label="Sightings view"
-        className="inline-flex self-center overflow-hidden rounded-lg border border-slate-300"
+        className="flex w-full max-w-md self-center overflow-hidden rounded-lg border border-slate-300"
       >
         {MODES.map((item) => {
           const isActive = mode === item.mode;
@@ -81,7 +83,7 @@ export function SightingsView() {
               type="button"
               aria-pressed={isActive}
               onClick={() => setMode(item.mode)}
-              className={`h-12 min-w-32 border-l border-slate-300 px-6 text-lg font-medium first:border-l-0 ${
+              className={`h-12 flex-1 border-l border-slate-300 text-lg font-medium first:border-l-0 ${
                 isActive ? "bg-primary text-white" : "bg-white text-ink"
               }`}
             >
@@ -99,8 +101,10 @@ export function SightingsView() {
             if (await deleteSighting(id)) setDeleted({ id, remote: false });
           }}
         />
-      ) : (
+      ) : mode === "map" ? (
         <SightingMap sightings={sightings} birdNameFor={birdNameFor} />
+      ) : (
+        <FeedView />
       )}
 
       {enrichingId && (
