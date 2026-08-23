@@ -1,7 +1,7 @@
 Feature: The friend feed (GET /api/feed)
 
-  Co-members' sightings from the last seven days, newest first. Never the caller's own,
-  never a stranger's, and never a tombstone. Sharing two groups with someone shows their
+  Co-members' sightings from the last seven days, newest first. (Not the caller's own,
+  not a stranger's, and not a tombstone deleted sighting) Sharing two groups with someone shows their
   sighting once, not twice.
 
   Background:

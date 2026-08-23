@@ -1,8 +1,6 @@
 Feature: Nearby place names in the feed (GET /api/feed)
 
-  A sighting resolves to the nearest settlement within 30km. Beyond that, or with no
-  coordinates at all, the feed says nothing rather than guessing: a confidently wrong
-  place name is worse than a missing one.
+  A sighting resolves to the nearest settlement within 30km.
 
   Background:
     Given a group "Walkers" owned by "bob" exists
