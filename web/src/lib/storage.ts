@@ -1,6 +1,6 @@
 // Ask the browser to treat our origin's storage as persistent. Without this
 // (and without being installed to the home screen), iOS Safari evicts
-// IndexedDB for sites unused for ~7 days — a field-notes app can't accept
+// IndexedDB for sites unused for ~7 days, and a field-notes app can't accept
 // that. Call once at startup; browsers may grant silently, prompt, or refuse.
 export async function ensurePersistence(): Promise<boolean> {
   if (!navigator.storage?.persist) return false;

@@ -30,7 +30,7 @@ scalar GroupId extends string;
 @maxLength(512)
 scalar PhotoPath extends string;
 
-// Error envelope — returned by every operation.
+// Error envelope: returned by every operation.
 
 @doc("Machine-readable error.")
 @error
@@ -43,7 +43,7 @@ model ApiError {
   message: string;
 }
 
-// Birds — UK species reference list, served for offline caching.
+// Birds: UK species reference list, served for offline caching.
 
 @doc("A bird species in the UK reference list.")
 model Bird {
@@ -65,10 +65,10 @@ model Bird {
   taxonomicOrder?: int32;
 }
 
-// Sightings — capture fields (observedAt, observedAtOffsetMinutes, latitude,
+// Sightings: capture fields (observedAt, observedAtOffsetMinutes, latitude,
 // longitude, accuracyM) are set on create and immutable thereafter. Content
 // fields (birdId, quickNote, notes, photoPaths) are mutable, arbitrated by
-// clientUpdatedAt (last-write-wins). No server-side `status` column —
+// clientUpdatedAt (last-write-wins). No server-side `status` column:
 // pending/synced is purely client state.
 
 @doc("A recorded bird sighting. Optional fields are omitted from JSON when unset.")
@@ -127,7 +127,7 @@ model Sighting {
   deleted?: boolean;
 }
 
-// Batch sync — POST /api/sightings/batch. Pushes offline-captured sightings.
+// Batch sync: POST /api/sightings/batch. Pushes offline-captured sightings.
 
 @doc("""
 One sighting queued offline. `id` is client-generated and is the idempotency
@@ -202,7 +202,7 @@ model BatchSyncResponse {
   results: BatchItemResult[];
 }
 
-// Enrichment — PUT /api/sightings/{id}. Full replace of content fields only.
+// Enrichment: PUT /api/sightings/{id}. Full replace of content fields only.
 
 @doc("""
 Full replace of a sighting's mutable content fields; an omitted field is
@@ -229,7 +229,7 @@ model SightingUpdate {
   photoPaths: PhotoPath[];
 }
 
-// Pagination — keyset over (observedAt DESC, id DESC).
+// Pagination: keyset over (observedAt DESC, id DESC).
 
 @doc("A page of sightings, newest first.")
 model SightingPage {
@@ -239,7 +239,7 @@ model SightingPage {
   nextCursor: string | null;
 }
 
-// Groups — social layer. Membership is the only sharing mechanism; joining
+// Groups: social layer. Membership is the only sharing mechanism; joining
 // shares the feed projection with other members (no per-sighting opt-out in
 // v1).
 
@@ -286,12 +286,12 @@ model CreateGroupRequest {
 
 @doc("Request to join a group by code.")
 model JoinGroupRequest {
-  @doc("Join code in any casing/separators — server normalises before lookup.")
+  @doc("Join code in any casing/separators; server normalises before lookup.")
   @maxLength(32)
   code: string;
 }
 
-// Feed — the read-only projection of a co-member's sighting.
+// Feed: the read-only projection of a co-member's sighting.
 
 @doc("One co-member's sighting, as exposed to everyone sharing a group with them.")
 model FeedItem {
@@ -321,7 +321,7 @@ model FeedPage {
   nextCursor: string | null;
 }
 
-// Account — GET /api/me. Also triggers just-in-time user provisioning.
+// Account: GET /api/me. Also triggers just-in-time user provisioning.
 
 @doc("The authenticated caller's profile.")
 model Me {

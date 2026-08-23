@@ -1,4 +1,4 @@
-# golangci-lint configuration for birb (schema v2 — see
+# golangci-lint configuration for birb (schema v2, see
 # https://golangci-lint.run/docs/configuration/file/).
 #
 # CI runs this via golangci/golangci-lint-action (.github/workflows/ci.yml).
@@ -43,6 +43,6 @@ formatters:
 
 issues:
   # Show every finding in CI instead of truncating after the first N per
-  # linter / N identical — we want the full list, not a sample.
+  # linter / N identical: we want the full list, not a sample.
   max-issues-per-linter: 0
   max-same-issues: 0

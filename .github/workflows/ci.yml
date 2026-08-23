@@ -11,7 +11,7 @@ concurrency:
 
 # Least privilege by default. No job below needs more than read access to
 # repo contents (checkout, `git diff` against the working tree, local
-# `go`/`npm` commands) — widen a specific job's `permissions:` block if that
+# `go`/`npm` commands): widen a specific job's `permissions:` block if that
 # ever changes rather than loosening this.
 permissions:
   contents: read
@@ -55,7 +55,7 @@ jobs:
 
   # ---------------------------------------------------------------------
   # DB-free unit tests (excludes tests/bdd, which is behind the `bdd`
-  # build tag and needs a real Postgres — see the `bdd` job).
+  # build tag and needs a real Postgres; see the `bdd` job).
   # ---------------------------------------------------------------------
   unit:
     name: unit
@@ -87,7 +87,7 @@ jobs:
             exit 0
           fi
 
-      # Optional — delete this step if nobody looks at the artifact.
+      # Optional: delete this step if nobody looks at the artifact.
       - name: upload coverage artifact
         uses: actions/upload-artifact@v7
         with:
@@ -118,7 +118,7 @@ jobs:
     env:
       # tests/bdd's harness (tests/bdd/suite_test.go) reads this, applies
       # the goose migrations in db/migrations/ itself, and truncates
-      # between scenarios — do not duplicate migration/truncation logic
+      # between scenarios: do not duplicate migration/truncation logic
       # here; that would double-apply against what the harness already does.
       BIRB_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/birb?sslmode=disable
     steps:
@@ -136,7 +136,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::tests/bdd does not exist yet in this checkout — skipping the BDD test step. See the comment on the bdd job above: this guard is removed once the suite is committed."
+            echo "::warning::tests/bdd does not exist yet in this checkout. Skipping the BDD test step. See the comment on the bdd job above: this guard is removed once the suite is committed."
           fi
 
       - name: go test -tags bdd
@@ -230,7 +230,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No *.test.ts(x) files under web/src yet — skipping the frontend test step. See frontend-course/12-testing-and-polish.md."
+            echo "::warning::No *.test.ts(x) files under web/src yet. Skipping the frontend test step. See frontend-course/12-testing-and-polish.md."
           fi
 
       - name: pnpm test run
@@ -326,27 +326,10 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------
-  # Continuous delivery — deliberately disabled. There is no chosen
-  # deploy target yet (the API's host is undecided; Supabase only covers
-  # the DB), so this is a skeleton, not a working job. `if: false` keeps
-  # it syntactically real (lints with actionlint, shows up in the Actions
-  # UI as skipped) while guaranteeing it never runs.
-  #
-  # TODO before enabling, all of which are follow-up decisions, not CI
-  # plumbing:
-  #   - Target platform (Fly.io / Render / ECS / Cloud Run / a VM, ...)
-  #   - How the app ships: container image + registry (which one, auth?)
-  #     or a plain build artifact/binary
-  #   - Environment(s) and their secrets (DB URL, JWT/JWKS config, etc.) —
-  #     almost certainly via a GitHub `environment:` with protection rules
-  #     (required reviewers and/or a deployment branch policy) rather than
-  #     bare repo secrets
-  #   - Whichever auth the target needs (cloud OIDC via `id-token: write`,
-  #     a registry token, ...) — do not add long-lived cloud credentials
-  #     as plain repo secrets if the target supports OIDC
+  # Continuous delivery: deliberately disabled
   # ---------------------------------------------------------------------
   deploy:
-    name: deploy (disabled — no target chosen yet)
+    name: deploy (disabled, no target chosen yet)
     runs-on: ubuntu-latest
     needs: [lint, unit, bdd, frontend-lint, frontend-build, frontend-test]
     # Flip on by deleting "false && " below once a target is chosen. The

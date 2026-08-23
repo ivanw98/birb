@@ -115,7 +115,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
   const remaining = MAX_PHOTOS - (row.photoPaths.length + queuedPhotos.length);
 
   // One strip for both kinds, so attaching a photo is visibly confirmed even
-  // offline — before this, thumbnails came only from row.photoPaths, so a photo
+  // offline. Before this, thumbnails came only from row.photoPaths, so a photo
   // queued with no connection showed nothing at all until sync caught up.
   const photoItems: PhotoItem[] = [
     ...row.photoPaths.map((path) => ({
@@ -151,7 +151,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
     }
     if (result.outcome === "conflict") {
       setBanner(
-        "Updated elsewhere — showing the latest. Check the photos and try again if it's still there.",
+        "Updated elsewhere: showing the latest. Check the photos and try again if it's still there.",
       );
       return;
     }
@@ -175,7 +175,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
 
     // Attaching a photo fires syncNow(), and syncPhotos() PUTs this same
     // sighting with a bumped clientUpdatedAt. Saving on top of a pass that's
-    // still in flight means one of the two 409s — and ours doesn't retry, by
+    // still in flight means one of the two 409s, and ours doesn't retry, by
     // design, so the user's text would be the loser of a conflict they caused
     // themselves. Wait the pass out, then re-read: `row` was captured at render
     // and its clientUpdatedAt/photoPaths may both be a version behind.
@@ -195,7 +195,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
 
     if (result.outcome === "conflict") {
       setBanner(
-        "Updated elsewhere — showing the latest; your text is still in the form.",
+        "Updated elsewhere: showing the latest; your text is still in the form.",
       );
       return;
     }
@@ -246,7 +246,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
       <div>
         <p className="mb-1 font-medium text-ink">Photos </p>
         <p className="mb-2 text-sm text-muted">
-          Photos save as soon as you add them. Cancel won't undo that — use
+          Photos save as soon as you add them. Cancel won't undo that. Use
           Remove.
         </p>
         {photoItems.length > 0 && (

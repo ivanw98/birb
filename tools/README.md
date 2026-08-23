@@ -2,7 +2,7 @@
 
 Build-time helpers.
 
-## `gen-seed` — UK bird reference seed
+## `gen-seed`: UK bird reference seed
 
 Generates `db/migrations/00002_seed_birds.sql` from `uk_birds.tsv`.
 
@@ -31,7 +31,7 @@ Built once from the BOU British List on
 for `ebird_code`, then one `brd_` id minted per row. Hand-edited since; treat it as
 canonical.
 
-## `gen-places` — UK populated-place seed
+## `gen-places`: UK populated-place seed
 
 Generates `db/migrations/00006_seed_places.sql` from `uk_places.tsv`.
 
@@ -59,7 +59,7 @@ means nothing to the database.
 - `population` is stored, not just filtered on. The feed floors on it, so changing how
   precisely a place name locates someone is a query change, not a reseed.
 
-### Attribution — GeoNames, CC BY 4.0
+### Attribution: GeoNames, CC BY 4.0
 
 `uk_places.tsv` derives from the [GeoNames](https://www.geonames.org/) GB dump
 (<https://download.geonames.org/export/dump/GB.zip>), licensed
