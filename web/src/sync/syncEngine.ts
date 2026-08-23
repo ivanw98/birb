@@ -2,6 +2,7 @@ import type { LocalSighting } from "@/types";
 import type { components } from "../api/schema";
 import { db } from "@/db/db";
 import { apiClient } from "@/api/client";
+import { refreshFeed } from "@/api/feed";
 import { getAccessToken } from "@/auth/tokenProvider";
 import { photoStore } from "@/photos";
 import { bumpClientUpdatedAt } from "@/lib/time";
@@ -61,7 +62,7 @@ function toWire(row: LocalSighting): SightingSync {
     longitude: row.longitude,
     accuracyM: row.accuracyM,
     deleted: row.deleted ? true : undefined,
-    // No photoPaths — the batch endpoint doesn't accept them (photos are attached via PUT after upload)
+    // No photoPaths: the batch endpoint doesn't accept them (photos are attached via PUT after upload)
   };
 }
 
@@ -238,7 +239,7 @@ async function hardDeleteLocal(id: string): Promise<void> {
 // A completed walk is a full snapshot of the account, tombstones included, so
 // any local synced row the walk never returned no longer exists on the server
 // for this account (fresh sign-in over an old cache, or a locally GC'd
-// tombstone). Pending/failed rows are kept — they carry unpushed work.
+// tombstone). Pending/failed rows are kept: they carry unpushed work.
 async function removeRowsGoneFromServer(seen: Set<string>): Promise<void> {
   await db.transaction("rw", db.sightings, db.photos, async () => {
     const synced = await db.sightings
@@ -306,6 +307,13 @@ async function runSyncPass(): Promise<SyncResult> {
     await syncPhotos();
     await pullFromServer();
 
+    try {
+      await refreshFeed();
+    } catch {
+      // A stale feed is the feed pane's banner to report, not SyncResult's:
+      // the outer catch would claim queued work failed to sync.
+    }
+
     return finish({ ok: true, pushed, failed });
   } catch {
     // Network or API failure: rows stay pending; the next trigger retries.
@@ -353,7 +361,7 @@ async function attachPhotoPaths(
   retry = true,
 ): Promise<void> {
   const desiredSet = new Set([...row.photoPaths, ...newPaths]);
-  // Contract: openapi/openapi.yaml — maxItems: 10 on both Sighting.photoPaths and the PUT body
+  // Contract: openapi/openapi.yaml, maxItems: 10 on both Sighting.photoPaths and the PUT body
   const desiredSlice = [...desiredSet].slice(0, 10);
 
   const body = {

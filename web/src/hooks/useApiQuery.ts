@@ -12,7 +12,7 @@ export function useApiQuery<T>(
   const [state, setState] = useState<QueryState<T>>({ status: "loading" });
   const runFetcher = useEffectEvent(fetcher);
 
-  // value identity for the key — same idea as TanStack's hashKey
+  // value identity for the key, same idea as TanStack's hashKey
   const serialisedKey = JSON.stringify(key);
 
   useEffect(() => {

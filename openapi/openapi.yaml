@@ -3,7 +3,7 @@ info:
   title: birb API
   version: 0.1.0
   description: |-
-    birb — a mobile-first, offline-capable bird-watching API.
+    birb: a mobile-first, offline-capable bird-watching API.
 
     All endpoints require a Supabase-issued JWT in `Authorization: Bearer <token>`.
     The Go service verifies the token against the Supabase project JWKS and
@@ -37,7 +37,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Bird'
         '304':
-          description: 304 Not Modified — If-None-Match matched the current ETag; no body.
+          description: '304 Not Modified: If-None-Match matched the current ETag; no body.'
         default:
           description: An unexpected error response.
           content:
@@ -90,7 +90,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: 201 Created — the new group, including the server-minted join code.
+          description: '201 Created: the new group, including the server-minted join code.'
           content:
             application/json:
               schema:
@@ -109,7 +109,7 @@ paths:
               $ref: '#/components/schemas/CreateGroupRequest'
     get:
       operationId: Groups_list
-      description: List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated — bounded by the membership and member caps.
+      description: 'List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated: bounded by the membership and member caps.'
       parameters: []
       responses:
         '200':
@@ -162,7 +162,7 @@ paths:
             $ref: '#/components/schemas/GroupId'
       responses:
         '204':
-          description: 204 No Content — the membership or group is gone (or was already gone); no body.
+          description: '204 No Content: the membership or group is gone (or was already gone); no body.'
         default:
           description: An unexpected error response.
           content:
@@ -172,7 +172,7 @@ paths:
   /api/groups/{id}/leave:
     post:
       operationId: Groups_leave
-      description: Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave` — they delete instead, since ownership never transfers.
+      description: Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave`; they delete instead, since ownership never transfers.
       parameters:
         - name: id
           in: path
@@ -181,7 +181,7 @@ paths:
             $ref: '#/components/schemas/GroupId'
       responses:
         '204':
-          description: 204 No Content — the membership or group is gone (or was already gone); no body.
+          description: '204 No Content: the membership or group is gone (or was already gone); no body.'
         default:
           description: An unexpected error response.
           content:
@@ -205,7 +205,7 @@ paths:
             $ref: '#/components/schemas/UserId'
       responses:
         '204':
-          description: 204 No Content — the membership or group is gone (or was already gone); no body.
+          description: '204 No Content: the membership or group is gone (or was already gone); no body.'
         default:
           description: An unexpected error response.
           content:
@@ -547,7 +547,7 @@ components:
         code:
           type: string
           maxLength: 32
-          description: Join code in any casing/separators — server normalises before lookup.
+          description: Join code in any casing/separators; server normalises before lookup.
       description: Request to join a group by code.
     Me:
       type: object

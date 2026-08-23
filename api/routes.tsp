@@ -18,7 +18,7 @@ model StaleUpdate {
   current: Sighting;
 }
 
-@doc("304 Not Modified — If-None-Match matched the current ETag; no body.")
+@doc("304 Not Modified: If-None-Match matched the current ETag; no body.")
 model BirdListNotModified {
   @statusCode statusCode: 304;
 }
@@ -101,12 +101,12 @@ interface Account {
 
 // ---------------------------------------------------------------------------
 
-@doc("204 No Content — the membership or group is gone (or was already gone); no body.")
+@doc("204 No Content: the membership or group is gone (or was already gone); no body.")
 model GroupNoContent {
   @statusCode statusCode: 204;
 }
 
-@doc("201 Created — the new group, including the server-minted join code.")
+@doc("201 Created: the new group, including the server-minted join code.")
 model GroupCreated {
   @statusCode statusCode: 201;
 
@@ -120,7 +120,7 @@ interface Groups {
   @post
   create(@body body: CreateGroupRequest): GroupCreated | ApiError;
 
-  @doc("List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated — bounded by the membership and member caps.")
+  @doc("List every group the caller belongs to, owned or joined, each with its full membership. Unpaginated: bounded by the membership and member caps.")
   @get
   list(): Group[] | ApiError;
 
@@ -129,7 +129,7 @@ interface Groups {
   @route("/join")
   join(@body body: JoinGroupRequest): Group | ApiError;
 
-  @doc("Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave` — they delete instead, since ownership never transfers.")
+  @doc("Leave a group; idempotent, and the caller's sightings drop out of other members' feeds on their next refresh. Owners get `owner_cannot_leave`; they delete instead, since ownership never transfers.")
   @post
   @route("/{id}/leave")
   leave(@path id: GroupId): GroupNoContent | ApiError;

@@ -1,5 +1,5 @@
 // Command devauth mints a development JWT and serves the matching JWKS so the
-// birb API can verify it — a local stand-in for Supabase Auth. Run it, copy
+// birb API can verify it (a local stand-in for Supabase Auth). Run it, copy
 // the two VITE_ lines into web/.env.local, and point the API at the JWKS:
 //
 //	SUPABASE_JWKS_URL=http://localhost:9999/.well-known/jwks.json

@@ -17,7 +17,7 @@ function describeResult(result: SyncResult | null): string {
     case false:
       switch (result.reason) {
         case "offline":
-          return "Can't sync — offline.";
+          return "Can't sync: offline.";
         case "no-auth":
           return "Please log in to sync.";
         case "busy":
