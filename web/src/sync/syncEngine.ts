@@ -306,9 +306,14 @@ async function runSyncPass(): Promise<SyncResult> {
     if (!token) return finish({ ok: false, reason: "no-auth" });
 
     const { pushed, failed } = await pushPending();
-    // Neither function coordinates with the other
-    await syncPhotos();
-    await syncRecordings();
+
+    let mediaFailed = false;
+    try {
+      await syncPhotos();
+      await syncRecordings();
+    } catch {
+      mediaFailed = true;
+    }
     await pullFromServer();
 
     try {
@@ -318,6 +323,7 @@ async function runSyncPass(): Promise<SyncResult> {
       // the outer catch would claim queued work failed to sync.
     }
 
+    if (mediaFailed) return finish({ ok: false, reason: "network" });
     return finish({ ok: true, pushed, failed });
   } catch {
     // Network or API failure: rows stay pending; the next trigger retries.
