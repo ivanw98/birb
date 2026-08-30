@@ -111,18 +111,18 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
   // attached removal is a PUT, and two in flight would race on clientUpdatedAt.
   const [removingKey, setRemovingKey] = useState<string | null>(null);
 
-  const queuedPhotos =
-    useLiveQuery(
-      () =>
-        db.photos
-          .where("sightingId")
-          .equals(row.id)
-          .and((p) => p.uploaded === 0)
-          .toArray(),
-      [row.id],
-    ) ?? [];
+  const queuedPhotos = useLiveQuery(
+    () =>
+      db.photos
+        .where("sightingId")
+        .equals(row.id)
+        .and((p) => p.uploaded === 0)
+        .toArray(),
+    [row.id],
+  );
 
-  const remaining = MAX_PHOTOS - (row.photoPaths.length + queuedPhotos.length);
+  const remaining =
+    MAX_PHOTOS - (row.photoPaths.length + (queuedPhotos ?? []).length);
 
   // One strip for both kinds, so attaching a photo is visibly confirmed even
   // offline. Before this, thumbnails came only from row.photoPaths, so a photo
@@ -133,7 +133,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
       kind: "attached" as const,
       path,
     })),
-    ...queuedPhotos.map((photo) => ({
+    ...(queuedPhotos ?? []).map((photo) => ({
       key: `queued-${photo.id}`,
       kind: "queued" as const,
       id: photo.id!,
@@ -149,27 +149,30 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
         ? { kind: "attached", path: item.path }
         : { kind: "queued", id: item.id };
 
-    const result = await removePhoto(row, target);
-    setRemovingKey(null);
+    try {
+      const result = await removePhoto(row, target);
 
-    if (result.outcome === "removed") return;
-    if (result.outcome === "offline") {
-      setBanner(
-        "Removing a photo that's already uploaded needs a connection. Try again once you're back online.",
-      );
-      return;
+      if (result.outcome === "removed") return;
+      if (result.outcome === "offline") {
+        setBanner(
+          "Removing a photo that's already uploaded needs a connection. Try again once you're back online.",
+        );
+        return;
+      }
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest. Check the photos and try again if it's still there.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setRemovingKey(null);
     }
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest. Check the photos and try again if it's still there.",
-      );
-      return;
-    }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -189,43 +192,45 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
     // design, so the user's text would be the loser of a conflict they caused
     // themselves. Wait the pass out, then re-read: `row` was captured at render
     // and its clientUpdatedAt/photoPaths may both be a version behind.
-    await syncSettled();
-    const fresh = (await db.sightings.get(row.id)) ?? row;
+    try {
+      await syncSettled();
+      const fresh = (await db.sightings.get(row.id)) ?? row;
 
-    const result = await saveEnrichment(fresh, content);
-    setSaving(false);
+      const result = await saveEnrichment(fresh, content);
 
-    if (
-      result.outcome === "saved-offline" ||
-      result.outcome === "saved-online"
-    ) {
-      onClose();
-      return;
-    }
+      if (
+        result.outcome === "saved-offline" ||
+        result.outcome === "saved-online"
+      ) {
+        onClose();
+        return;
+      }
 
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest; your text is still in the form.",
-      );
-      return;
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest; your text is still in the form.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setSaving(false);
     }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
-  const queuedRecordings =
-    useLiveQuery(
-      () =>
-        db.recordings
-          .where("sightingId")
-          .equals(row.id)
-          .and((r) => r.uploaded === 0)
-          .toArray(),
-      [row.id],
-    ) ?? [];
+  const queuedRecordings = useLiveQuery(
+    () =>
+      db.recordings
+        .where("sightingId")
+        .equals(row.id)
+        .and((r) => r.uploaded === 0)
+        .toArray(),
+    [row.id],
+  );
 
   const recordingItems: RecordingItem[] = [
     ...row.recordingPaths.map((path) => ({
@@ -233,7 +238,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
       kind: "attached" as const,
       path,
     })),
-    ...queuedRecordings.map((recording) => ({
+    ...(queuedRecordings ?? []).map((recording) => ({
       key: `rec-queued-${recording.id}`,
       kind: "queued" as const,
       id: recording.id!,
@@ -242,7 +247,8 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
   ];
 
   const remainingRecordings =
-    MAX_RECORDINGS - (row.recordingPaths.length + queuedRecordings.length);
+    MAX_RECORDINGS -
+    (row.recordingPaths.length + (queuedRecordings ?? []).length);
 
   const handleRemoveRecording = async (item: RecordingItem) => {
     setRemovingKey(item.key);
@@ -252,27 +258,30 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
         ? { kind: "attached", path: item.path }
         : { kind: "queued", id: item.id };
 
-    const result = await removeRecording(row, target);
-    setRemovingKey(null);
+    try {
+      const result = await removeRecording(row, target);
 
-    if (result.outcome === "removed") return;
-    if (result.outcome === "offline") {
-      setBanner(
-        "Removing a recording that's already uploaded needs a connection. Try again once you're back online.",
-      );
-      return;
+      if (result.outcome === "removed") return;
+      if (result.outcome === "offline") {
+        setBanner(
+          "Removing a recording that's already uploaded needs a connection. Try again once you're back online.",
+        );
+        return;
+      }
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest. Check the recordings and try again if it's still there.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setRemovingKey(null);
     }
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest. Check the recordings and try again if it's still there.",
-      );
-      return;
-    }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
   return (
@@ -318,33 +327,42 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
           Photos save as soon as you add them. Cancel won't undo that. Use
           Remove.
         </p>
-        {photoItems.length > 0 && (
-          <ul className="mb-3 flex flex-wrap gap-3">
-            {photoItems.map((item, index) => (
-              <li key={item.key} className="flex flex-col items-center gap-1">
-                {item.kind === "attached" ? (
-                  <PhotoThumb path={item.path} />
-                ) : (
-                  <PhotoThumb blob={item.blob} />
-                )}
-                <button
-                  type="button"
-                  onClick={() => void handleRemove(item)}
-                  disabled={removingKey !== null}
-                  aria-label={`Remove photo ${index + 1} of ${photoItems.length}`}
-                  className="h-12 w-24 rounded-md border border-danger text-base font-medium text-danger disabled:opacity-50"
-                >
-                  {removingKey === item.key ? "Removing…" : "Remove"}
-                </button>
-              </li>
-            ))}
-          </ul>
+        {queuedPhotos === undefined ? (
+          <p className="text-muted">Loading photos…</p>
+        ) : (
+          <>
+            {photoItems.length > 0 && (
+              <ul className="mb-3 flex flex-wrap gap-3">
+                {photoItems.map((item, index) => (
+                  <li
+                    key={item.key}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    {item.kind === "attached" ? (
+                      <PhotoThumb path={item.path} />
+                    ) : (
+                      <PhotoThumb blob={item.blob} />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleRemove(item)}
+                      disabled={removingKey !== null || saving}
+                      aria-label={`Remove photo ${index + 1} of ${photoItems.length}`}
+                      className="h-12 w-24 rounded-md border border-danger text-base font-medium text-danger disabled:opacity-50"
+                    >
+                      {removingKey === item.key ? "Removing…" : "Remove"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <PhotoCapture
+              sightingId={row.id}
+              remaining={remaining}
+              disabled={saving || removingKey !== null}
+            ></PhotoCapture>
+          </>
         )}
-        <PhotoCapture
-          sightingId={row.id}
-          remaining={remaining}
-          disabled={saving || removingKey !== null}
-        ></PhotoCapture>
       </div>
 
       <div>
@@ -353,39 +371,45 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
           Recordings save as soon as you stop. Cancel won't undo that. Use
           Remove.
         </p>
-        {recordingItems.length > 0 && (
-          <ul className="mb-3 flex flex-col gap-2">
-            {recordingItems.map((item, index) => (
-              <li key={item.key} className="flex items-center gap-3">
-                {item.kind === "attached" ? (
-                  <RecordingPlayer
-                    path={item.path}
-                    label={`Recording ${index + 1}`}
-                  />
-                ) : (
-                  <RecordingPlayer
-                    blob={item.blob}
-                    label={`Recording ${index + 1}`}
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => void handleRemoveRecording(item)}
-                  disabled={removingKey !== null}
-                  aria-label={`Remove recording ${index + 1} of ${recordingItems.length}`}
-                  className="h-12 w-24 shrink-0 rounded-md border border-danger text-base font-medium text-danger disabled:opacity-50"
-                >
-                  {removingKey === item.key ? "Removing…" : "Remove"}
-                </button>
-              </li>
-            ))}
-          </ul>
+        {queuedRecordings === undefined ? (
+          <p className="text-muted">Loading recordings…</p>
+        ) : (
+          <>
+            {recordingItems.length > 0 && (
+              <ul className="mb-3 flex flex-col gap-2">
+                {recordingItems.map((item, index) => (
+                  <li key={item.key} className="flex items-center gap-3">
+                    {item.kind === "attached" ? (
+                      <RecordingPlayer
+                        path={item.path}
+                        label={`Recording ${index + 1}`}
+                      />
+                    ) : (
+                      <RecordingPlayer
+                        blob={item.blob}
+                        label={`Recording ${index + 1}`}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveRecording(item)}
+                      disabled={removingKey !== null || saving}
+                      aria-label={`Remove recording ${index + 1} of ${recordingItems.length}`}
+                      className="h-12 w-24 shrink-0 rounded-md border border-danger text-base font-medium text-danger disabled:opacity-50"
+                    >
+                      {removingKey === item.key ? "Removing…" : "Remove"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <RecordingCapture
+              sightingId={row.id}
+              remaining={remainingRecordings}
+              disabled={saving || removingKey !== null}
+            />
+          </>
         )}
-        <RecordingCapture
-          sightingId={row.id}
-          remaining={remainingRecordings}
-          disabled={saving || removingKey !== null}
-        />
       </div>
 
       <DialogFooter>
@@ -397,7 +421,7 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={saving} className="h-12 px-6 text-base">
+        <Button type="submit" disabled={saving || removingKey !== null} className="h-12 px-6 text-base">
           {saving ? "Saving…" : "Save"}
         </Button>
       </DialogFooter>

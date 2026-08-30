@@ -205,6 +205,10 @@ jobs:
   frontend-test:
     name: frontend-test
     runs-on: ubuntu-latest
+    env:
+      # No real Supabase project in CI
+      VITE_SUPABASE_URL: https://test.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_placeholder
     steps:
       - uses: actions/checkout@v7
 
@@ -222,19 +226,7 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile
 
-      - name: check frontend test files exist
-        id: frontend-tests
-        working-directory: web
-        run: |
-          if [ -n "$(find src -name '*.test.ts' -o -name '*.test.tsx')" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No *.test.ts(x) files under web/src yet. Skipping the frontend test step. See frontend-course/12-testing-and-polish.md."
-          fi
-
       - name: pnpm test run
-        if: steps.frontend-tests.outputs.present == 'true'
         working-directory: web
         run: pnpm run test run
 
