@@ -9,8 +9,9 @@ export function useCapture() {
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<LocalSighting | null>(null);
   // Hides the capture-outcome banner without clearing `last` (which also
-  // mounts the QuickTag). Owned here so a dismissal survives navigation.
+  // mounts the details sheet). Owned here so a dismissal survives navigation.
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const totalAttemptCounter = useRef(0);
 
   async function record(): Promise<void> {
@@ -23,6 +24,7 @@ export function useCapture() {
       await db.sightings.add(sighting);
 
       setLast(sighting);
+      setSheetOpen(true);
       // fire-and-forget
       void syncNow();
       setSaveError(null);
@@ -42,5 +44,7 @@ export function useCapture() {
     saveError,
     bannerDismissed,
     dismissBanner: () => setBannerDismissed(true),
+    sheetOpen,
+    closeSheet: () => setSheetOpen(false),
   };
 }

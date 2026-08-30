@@ -34,8 +34,16 @@ function HeaderIdentity() {
 export default function App() {
   const [view, setView] = useState<View>("record");
   const { status, session, signOut } = useAuth();
-  const { record, busy, last, saveError, bannerDismissed, dismissBanner } =
-    useCapture();
+  const {
+    record,
+    busy,
+    last,
+    saveError,
+    bannerDismissed,
+    dismissBanner,
+    sheetOpen,
+    closeSheet,
+  } = useCapture();
 
   // refreshBirds is completely static and lives entirely outside the React component lifecycle, hence no deps
   // run's on startup
@@ -96,6 +104,8 @@ export default function App() {
           saveError={saveError}
           bannerDismissed={bannerDismissed}
           onDismissBanner={dismissBanner}
+          sheetOpen={sheetOpen}
+          onCloseSheet={closeSheet}
         />
       ) : (
         <SightingsView />

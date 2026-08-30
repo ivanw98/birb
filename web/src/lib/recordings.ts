@@ -6,7 +6,7 @@
 const CANDIDATES: { mimeType: string; extension: string }[] = [
   { mimeType: "audio/webm;codecs=opus", extension: "webm" },
   { mimeType: "audio/ogg;codecs=opus", extension: "ogg" },
-  { mimeType: "audio/mp4", extension: "mp4a" },
+  { mimeType: "audio/mp4", extension: "m4a" },
 ];
 
 export const MAX_RECORDING_SECONDS = 60;

@@ -1,6 +1,6 @@
+import { CaptureSheet } from "./CaptureSheet";
 import { RecordButton } from "./RecordButton";
 import { StatusBanner } from "./StatusBanner";
-import { QuickTag } from "./QuickTag";
 import { useGeoPermission } from "@/hooks/useGeoPermission";
 import type { LocalSighting } from "@/types";
 
@@ -27,11 +27,13 @@ export interface RecordViewProps {
   saveError: string | null;
   bannerDismissed: boolean;
   onDismissBanner: () => void;
+  sheetOpen: boolean;
+  onCloseSheet: () => void;
 }
 
 // Capture state is owned by App, not here. This view unmounts on every
 // navigation, and state owned locally would take the capture banner and the
-// QuickTag surface with it each time you glance at the list and come back.
+// details sheet with it each time you glance at the list and come back.
 // useGeoPermission stays local: nothing outside this view reads it.
 export function RecordView({
   record,
@@ -40,6 +42,8 @@ export function RecordView({
   saveError,
   bannerDismissed,
   onDismissBanner,
+  sheetOpen,
+  onCloseSheet,
 }: RecordViewProps) {
   const permission = useGeoPermission();
   const banner = bannerDismissed ? null : captureBannerFor(last);
@@ -59,7 +63,13 @@ export function RecordView({
           {banner.message}
         </StatusBanner>
       )}
-      {last && <QuickTag sightingId={last.id} />}
+      {last && (
+        <CaptureSheet
+          sightingId={last.id}
+          open={sheetOpen}
+          onClose={onCloseSheet}
+        />
+      )}
       {saveError && !bannerDismissed && (
         <StatusBanner tone="danger" onDismiss={onDismissBanner}>
           Could not save this sighting. Your device may be low on storage.
