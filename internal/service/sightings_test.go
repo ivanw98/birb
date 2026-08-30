@@ -253,6 +253,62 @@ func TestUpdateAcceptsOwnedPhotoPath(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestUpdateRejectsOverlongPhotoPath(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	long := testAuthID + "/" + validSgh + "/" + strings.Repeat("a", 540) + ".jpg"
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, PhotoPaths: []string{long}})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeInvalidPhotoPath, ce.Code)
+}
+
+func TestUpdateRejectsForeignRecordingPath(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	// prefixed with a different auth uid
+	bad := "22222222-2222-2222-2222-222222222222/" + validSgh + "/a.webm"
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, RecordingPaths: []string{bad}})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeInvalidRecordingPath, ce.Code)
+}
+
+func TestUpdateRejectsOverlongRecordingPath(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	long := testAuthID + "/" + validSgh + "/" + strings.Repeat("a", 540) + ".webm"
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, RecordingPaths: []string{long}})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeInvalidRecordingPath, ce.Code)
+}
+
+func TestUpdateRejectsRecordingPathWithWrongExtension(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	bad := testAuthID + "/" + validSgh + "/a.mp3" // MediaRecorder never emits mp3
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, RecordingPaths: []string{bad}})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeInvalidRecordingPath, ce.Code)
+}
+
+func TestUpdateAcceptsOwnedRecordingPath(t *testing.T) {
+	sr := &mockSightingRepo{UpdateFn: func(_ context.Context, _, _ string, _ models.SightingUpdate) (*models.Sighting, bool, error) {
+		return &models.Sighting{ID: validSgh}, true, nil
+	}}
+	svc := newSightingSvc(sr, &mockBirdRepo{})
+	for _, ext := range []string{"webm", "ogg", "m4a", "mp4"} {
+		ok := testAuthID + "/" + validSgh + "/recording_1." + ext
+		_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, RecordingPaths: []string{ok}})
+		require.NoError(t, err, "extension %s should be accepted", ext)
+	}
+}
+
+func TestUpdateRejectsTooManyRecordingPaths(t *testing.T) {
+	svc := newSightingSvc(&mockSightingRepo{}, &mockBirdRepo{})
+	paths := make([]string, 0, 6)
+	for i := range 6 {
+		paths = append(paths, testAuthID+"/"+validSgh+"/r"+string(rune('a'+i))+".webm")
+	}
+	_, err := svc.Update(context.Background(), testUser(), validSgh, models.SightingUpdate{ClientUpdatedAt: fixedNow, RecordingPaths: paths})
+	ce := models.AsCoded(err)
+	assert.Equal(t, models.CodeValidationFailed, ce.Code)
+}
+
 func TestUpdateUnknownBird(t *testing.T) {
 	br := &mockBirdRepo{ExistingIDsFn: func(_ context.Context, _ []string) (map[string]struct{}, error) { return birdSet(), nil }}
 	svc := newSightingSvc(&mockSightingRepo{}, br)

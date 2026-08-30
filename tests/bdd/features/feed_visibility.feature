@@ -114,3 +114,11 @@ Feature: The friend feed (GET /api/feed)
     Given I am anonymous
     When I make a GET call to /api/feed
     Then I should receive a 401 JSON response
+
+  Scenario: A co-member's attached photos and recordings appear in the feed
+    Given a sighting by "bob" observed 2 hours ago exists as "withmedia"
+    And the sighting "withmedia" has photo "bob-uid/{{ sighting.withmedia.id }}/a.jpg" and recording "bob-uid/{{ sighting.withmedia.id }}/a.webm"
+    When I make a GET call to /api/feed
+    Then I should receive a 200 JSON response
+    And the response field "items.0.photoPaths.0" should be "bob-uid/{{ sighting.withmedia.id }}/a.jpg"
+    And the response field "items.0.recordingPaths.0" should be "bob-uid/{{ sighting.withmedia.id }}/a.webm"

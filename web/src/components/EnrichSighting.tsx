@@ -17,14 +17,18 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   removePhoto,
+  removeRecording,
   saveEnrichment,
   type PhotoTarget,
+  type RecordingTarget,
   type SightingContent,
 } from "@/lib/enrich";
 import { StatusBanner } from "./StatusBanner";
 import { syncSettled } from "@/sync/syncEngine";
 import { MAX_PHOTOS, PhotoCapture } from "./PhotoCapture";
 import { PhotoThumb } from "./PhotoThumb";
+import { MAX_RECORDINGS, RecordingCapture } from "./RecordingCapture";
+import { RecordingPlayer } from "./RecordingPlayer";
 
 const QUICK_NOTE_MAX = 280;
 const NOTES_MAX = 5000;
@@ -82,6 +86,12 @@ export function EnrichSighting({
 // still sitting in the local queue. `key` doubles as React's key and the
 // in-flight marker for the Remove button.
 type PhotoItem =
+  | { key: string; kind: "attached"; path: string }
+  | { key: string; kind: "queued"; id: number; blob: Blob };
+
+// Same two variants as PhotoItem. Keys carry a `rec-` prefix because both
+// strips share one removingKey, and a bare path could collide with a photo's.
+type RecordingItem =
   | { key: string; kind: "attached"; path: string }
   | { key: string; kind: "queued"; id: number; blob: Blob };
 
@@ -206,6 +216,65 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
     setBanner(result.message);
   };
 
+  const queuedRecordings =
+    useLiveQuery(
+      () =>
+        db.recordings
+          .where("sightingId")
+          .equals(row.id)
+          .and((r) => r.uploaded === 0)
+          .toArray(),
+      [row.id],
+    ) ?? [];
+
+  const recordingItems: RecordingItem[] = [
+    ...row.recordingPaths.map((path) => ({
+      key: `rec-${path}`,
+      kind: "attached" as const,
+      path,
+    })),
+    ...queuedRecordings.map((recording) => ({
+      key: `rec-queued-${recording.id}`,
+      kind: "queued" as const,
+      id: recording.id!,
+      blob: recording.blob,
+    })),
+  ];
+
+  const remainingRecordings =
+    MAX_RECORDINGS - (row.recordingPaths.length + queuedRecordings.length);
+
+  const handleRemoveRecording = async (item: RecordingItem) => {
+    setRemovingKey(item.key);
+    setBanner(null);
+    const target: RecordingTarget =
+      item.kind === "attached"
+        ? { kind: "attached", path: item.path }
+        : { kind: "queued", id: item.id };
+
+    const result = await removeRecording(row, target);
+    setRemovingKey(null);
+
+    if (result.outcome === "removed") return;
+    if (result.outcome === "offline") {
+      setBanner(
+        "Removing a recording that's already uploaded needs a connection. Try again once you're back online.",
+      );
+      return;
+    }
+    if (result.outcome === "conflict") {
+      setBanner(
+        "Updated elsewhere: showing the latest. Check the recordings and try again if it's still there.",
+      );
+      return;
+    }
+    if (result.outcome === "gone") {
+      onDeleted(row.id, true);
+      return;
+    }
+    setBanner(result.message);
+  };
+
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
       {banner && <StatusBanner tone="danger">{banner}</StatusBanner>}
@@ -276,6 +345,47 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
           remaining={remaining}
           disabled={saving || removingKey !== null}
         ></PhotoCapture>
+      </div>
+
+      <div>
+        <p className="mb-1 font-medium text-ink">Recordings</p>
+        <p className="mb-2 text-sm text-muted">
+          Recordings save as soon as you stop. Cancel won't undo that. Use
+          Remove.
+        </p>
+        {recordingItems.length > 0 && (
+          <ul className="mb-3 flex flex-col gap-2">
+            {recordingItems.map((item, index) => (
+              <li key={item.key} className="flex items-center gap-3">
+                {item.kind === "attached" ? (
+                  <RecordingPlayer
+                    path={item.path}
+                    label={`Recording ${index + 1}`}
+                  />
+                ) : (
+                  <RecordingPlayer
+                    blob={item.blob}
+                    label={`Recording ${index + 1}`}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveRecording(item)}
+                  disabled={removingKey !== null}
+                  aria-label={`Remove recording ${index + 1} of ${recordingItems.length}`}
+                  className="h-12 w-24 shrink-0 rounded-md border border-danger text-base font-medium text-danger disabled:opacity-50"
+                >
+                  {removingKey === item.key ? "Removing…" : "Remove"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <RecordingCapture
+          sightingId={row.id}
+          remaining={remainingRecordings}
+          disabled={saving || removingKey !== null}
+        />
       </div>
 
       <DialogFooter>

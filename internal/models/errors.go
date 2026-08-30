@@ -8,18 +8,19 @@ import (
 
 // Stable error slugs: the wire `code` values clients branch on; do not rename casually.
 const (
-	CodeUnknownBird      = "unknown_bird_id"
-	CodeIDConflict       = "id_conflict"
-	CodeObservedInFuture = "observed_at_in_future"
-	CodeClientTSInFuture = "client_updated_at_in_future"
-	CodeValidationFailed = "validation_failed"
-	CodeNotFound         = "not_found"
-	CodeStaleUpdate      = "stale_update"
-	CodeBatchTooLarge    = "batch_too_large"
-	CodeInvalidPhotoPath = "invalid_photo_path"
-	CodeBadRequest       = "bad_request"
-	CodeUnauthorized     = "unauthorized"
-	CodeInternal         = "internal_error"
+	CodeUnknownBird          = "unknown_bird_id"
+	CodeIDConflict           = "id_conflict"
+	CodeObservedInFuture     = "observed_at_in_future"
+	CodeClientTSInFuture     = "client_updated_at_in_future"
+	CodeValidationFailed     = "validation_failed"
+	CodeNotFound             = "not_found"
+	CodeStaleUpdate          = "stale_update"
+	CodeBatchTooLarge        = "batch_too_large"
+	CodeInvalidPhotoPath     = "invalid_photo_path"
+	CodeInvalidRecordingPath = "invalid_recording_path"
+	CodeBadRequest           = "bad_request"
+	CodeUnauthorized         = "unauthorized"
+	CodeInternal             = "internal_error"
 
 	CodeUnknownJoinCode   = "unknown_join_code"
 	CodeNotGroupOwner     = "not_group_owner"
@@ -70,6 +71,10 @@ func ErrUnknownBird(message string) *CodedError {
 
 func ErrInvalidPhotoPath(message string) *CodedError {
 	return Coded(http.StatusBadRequest, CodeInvalidPhotoPath, message)
+}
+
+func ErrInvalidRecordingPath(message string) *CodedError {
+	return Coded(http.StatusBadRequest, CodeInvalidRecordingPath, message)
 }
 
 func ErrBatchTooLarge(message string) *CodedError {

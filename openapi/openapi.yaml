@@ -449,6 +449,8 @@ components:
       required:
         - sightingId
         - observedAt
+        - photoPaths
+        - recordingPaths
       properties:
         sightingId:
           allOf:
@@ -470,6 +472,18 @@ components:
           type: string
           maxLength: 200
           description: Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km.
+        photoPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhotoPath'
+          maxItems: 10
+          description: Storage paths of attached photos. Max 10.
+        recordingPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingPath'
+          maxItems: 5
+          description: Storage paths of attached sound recordings. Max 5.
       description: One co-member's sighting, as exposed to everyone sharing a group with them.
     FeedPage:
       type: object
@@ -577,6 +591,10 @@ components:
       type: string
       maxLength: 512
       description: Bucket-relative Supabase Storage object path for a photo. Max 512 chars.
+    RecordingPath:
+      type: string
+      maxLength: 512
+      description: Bucket-relative Supabase Storage object path for a sound recording. Max 512 chars.
     Sighting:
       type: object
       required:
@@ -587,6 +605,7 @@ components:
         - createdAt
         - updatedAt
         - photoPaths
+        - recordingPaths
       properties:
         id:
           $ref: '#/components/schemas/SightingId'
@@ -649,6 +668,12 @@ components:
             $ref: '#/components/schemas/PhotoPath'
           maxItems: 10
           description: Content field. Storage paths of attached photos. Max 10.
+        recordingPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingPath'
+          maxItems: 5
+          description: Content field. Storage paths of attached sound recordings. Max 5.
         deleted:
           type: boolean
           description: '`true` only on tombstones, returned only when `includeDeleted=true`.'
@@ -743,6 +768,7 @@ components:
       required:
         - clientUpdatedAt
         - photoPaths
+        - recordingPaths
       properties:
         clientUpdatedAt:
           type: string
@@ -766,6 +792,12 @@ components:
             $ref: '#/components/schemas/PhotoPath'
           maxItems: 10
           description: Full set of photo paths after this update. Each must belong to the caller. Max 10.
+        recordingPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingPath'
+          maxItems: 5
+          description: Full set of recording paths after this update. Each must belong to the caller. Max 5.
       description: |-
         Full replace of a sighting's mutable content fields; an omitted field is
         cleared. Capture facts are immutable and not part of this model.

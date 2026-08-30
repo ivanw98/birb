@@ -1,6 +1,6 @@
 import type { Bird } from "@/api/birds";
 import type { LocalSighting } from "@/types";
-import Dexie, { type Table } from "dexie";
+import Dexie, { type Table, type Transaction } from "dexie";
 
 export interface MetaEntry {
   key: string;
@@ -23,6 +23,18 @@ export interface FeedRow {
   authorName?: string;
   observedAt: string;
   placeName?: string;
+  photoPaths: string[];
+  recordingPaths: string[];
+}
+
+// added in migration(4);
+export interface LocalRecording {
+  id?: number;
+  sightingId: string;
+  fileName: string;
+  blob: Blob;
+  mimeType: string;
+  uploaded: 0 | 1;
 }
 
 export class BirbDB extends Dexie {
@@ -33,6 +45,8 @@ export class BirbDB extends Dexie {
   photos!: Table<LocalPhoto, number>;
   // added in migration(3)
   feedItems!: Table<FeedRow, string>;
+  // added in migration(4)
+  recordings!: Table<LocalRecording, number>;
   constructor() {
     // Call Dexie constructor and pass `birb` as the db name
     super("birb");
@@ -57,6 +71,31 @@ export class BirbDB extends Dexie {
     };
 
     this.version(3).stores(schema_3);
+
+    const schema_4 = {
+      recordings: "++id, sightingId, uploaded",
+    };
+
+    // recordingPaths is new on the sightings row, and so rows already exist on disk that predate it
+    const backfillMediaPaths = async (tx: Transaction) => {
+      await tx
+        .table("sightings")
+        .toCollection()
+        .modify((sighting: Partial<LocalSighting>) => {
+          if (sighting.recordingPaths === undefined)
+            sighting.recordingPaths = [];
+        });
+
+      await tx
+        .table("feedItems")
+        .toCollection()
+        .modify((feed: Partial<FeedRow>) => {
+          if (feed.photoPaths === undefined) feed.photoPaths = [];
+          if (feed.recordingPaths === undefined) feed.recordingPaths = [];
+        });
+    };
+
+    this.version(4).stores(schema_4).upgrade(backfillMediaPaths);
   }
 }
 

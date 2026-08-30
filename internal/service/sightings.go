@@ -79,39 +79,16 @@ func (s *Sightings) List(ctx context.Context, user models.User, limit int, curso
 	return page, nil
 }
 
-// Update enriches a sighting (full replace of content fields), enforcing photo
+// Update enriches a sighting (full replace of content fields), enforcing media
 // ownership and last-write-wins with a loud 409 on a stale write.
-func (s *Sightings) Update(ctx context.Context, user models.User, id string, upd models.SightingUpdate) (models.Sighting, error) {
-	if !sightingIDPattern.MatchString(id) {
-		return models.Sighting{}, models.ErrValidation("id must match ^sgh_[a-z0-9]{26}$")
-	}
-	if ae := s.validateClientUpdatedAt(upd.ClientUpdatedAt); ae != nil {
-		return models.Sighting{}, asBadRequest(ae)
-	}
-	if ae := validateContentLengths(upd.QuickNote, upd.Notes); ae != nil {
-		return models.Sighting{}, asBadRequest(ae)
-	}
-	if len(upd.PhotoPaths) > maxPhotoPaths {
-		return models.Sighting{}, models.ErrValidation("at most 10 photos")
-	}
-	// Photo paths must be owned by the caller and belong to this sighting.
-	re := photoPathRegex(user.AuthID, id)
-	for _, p := range upd.PhotoPaths {
-		if !re.MatchString(p) {
-			return models.Sighting{}, models.ErrInvalidPhotoPath("photo path not owned by caller: " + p)
-		}
-	}
-	if upd.BirdID != nil {
-		if !birdIDPattern.MatchString(*upd.BirdID) {
-			return models.Sighting{}, models.ErrValidation("birdId must match ^brd_[a-z0-9]{26}$")
-		}
-		exists, err := s.birds.ExistingIDs(ctx, []string{*upd.BirdID})
-		if err != nil {
-			return models.Sighting{}, err
-		}
-		if _, ok := exists[*upd.BirdID]; !ok {
-			return models.Sighting{}, models.ErrUnknownBird("birdId does not exist: " + *upd.BirdID)
-		}
+func (s *Sightings) Update(
+	ctx context.Context,
+	user models.User,
+	id string,
+	upd models.SightingUpdate,
+) (models.Sighting, error) {
+	if err := s.validateUpdate(ctx, user, id, upd); err != nil {
+		return models.Sighting{}, err
 	}
 
 	row, applied, err := s.sightings.UpdateContent(ctx, id, user.ID, upd)
@@ -122,15 +99,104 @@ func (s *Sightings) Update(ctx context.Context, user models.User, id string, upd
 		return *row, nil
 	}
 
-	// Not applied: distinguish 404 (row absent/not ours) from 409 (stale write, current state returned for reconciliation).
-	current, found, err := s.sightings.GetForUser(ctx, id, user.ID)
+	return s.resolveUnappliedUpdate(ctx, id, user.ID)
+}
+
+func (s *Sightings) validateUpdate(
+	ctx context.Context,
+	user models.User,
+	id string,
+	upd models.SightingUpdate,
+) error {
+	if !sightingIDPattern.MatchString(id) {
+		return models.ErrValidation("id must match ^sgh_[a-z0-9]{26}$")
+	}
+
+	if ae := s.validateClientUpdatedAt(upd.ClientUpdatedAt); ae != nil {
+		return asBadRequest(ae)
+	}
+	if ae := validateContentLengths(upd.QuickNote, upd.Notes); ae != nil {
+		return asBadRequest(ae)
+	}
+
+	if err := validateSightingMedia(user.AuthID, id, upd); err != nil {
+		return err
+	}
+
+	return s.validateBird(ctx, upd.BirdID)
+}
+
+func validateSightingMedia(
+	authID string,
+	sightingID string,
+	upd models.SightingUpdate,
+) error {
+	if len(upd.PhotoPaths) > maxPhotoPaths {
+		return models.ErrValidation("at most 10 photos")
+	}
+	if len(upd.RecordingPaths) > maxRecordingPaths {
+		return models.ErrValidation("at most 5 recordings")
+	}
+
+	photoPathPattern := mediaPathRegex(authID, sightingID, photoFilePattern)
+	for _, path := range upd.PhotoPaths {
+		if len(path) > maxMediaPathLen {
+			return models.ErrInvalidPhotoPath("photo path exceeds 512 characters")
+		}
+		if !photoPathPattern.MatchString(path) {
+			return models.ErrInvalidPhotoPath("photo path not owned by caller: " + path)
+		}
+	}
+
+	recordingPathPattern := mediaPathRegex(authID, sightingID, recordingFilePattern)
+	for _, path := range upd.RecordingPaths {
+		if len(path) > maxMediaPathLen {
+			return models.ErrInvalidRecordingPath("recording path exceeds 512 characters")
+		}
+		if !recordingPathPattern.MatchString(path) {
+			return models.ErrInvalidRecordingPath("recording path not owned by caller: " + path)
+		}
+	}
+
+	return nil
+}
+
+func (s *Sightings) validateBird(ctx context.Context, birdID *string) error {
+	if birdID == nil {
+		return nil
+	}
+
+	if !birdIDPattern.MatchString(*birdID) {
+		return models.ErrValidation("birdId must match ^brd_[a-z0-9]{26}$")
+	}
+
+	existing, err := s.birds.ExistingIDs(ctx, []string{*birdID})
+	if err != nil {
+		return err
+	}
+	if _, ok := existing[*birdID]; !ok {
+		return models.ErrUnknownBird("birdId does not exist: " + *birdID)
+	}
+
+	return nil
+}
+
+func (s *Sightings) resolveUnappliedUpdate(
+	ctx context.Context,
+	id string,
+	userID string,
+) (models.Sighting, error) {
+	current, found, err := s.sightings.GetForUser(ctx, id, userID)
 	if err != nil {
 		return models.Sighting{}, err
 	}
 	if !found {
 		return models.Sighting{}, models.ErrNotFound("sighting not found")
 	}
-	return models.Sighting{}, &models.StaleError{Current: current}
+
+	return models.Sighting{}, &models.StaleError{
+		Current: current,
+	}
 }
 
 // --- helpers ---

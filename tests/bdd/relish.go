@@ -86,6 +86,7 @@ func InitializeScenario(env *harness) func(*godog.ScenarioContext) {
 		sc.Step(`^"([^"]*)" has (\d+) sightings from the last week$`, s.userHasNSightings)
 		sc.Step(`^the sighting "([^"]*)" is soft deleted$`, s.sightingSoftDeleted)
 		sc.Step(`^the sighting "([^"]*)" has notes "([^"]*)" and quick note "([^"]*)"$`, s.sightingHasNotes)
+		sc.Step(`^the sighting "([^"]*)" has photo "([^"]*)" and recording "([^"]*)"$`, s.sightingHasMedia)
 		sc.Step(`^a place "([^"]*)" exists at ([-\d.]+), ([-\d.]+)$`, s.placeExists)
 		sc.Step(`^a place "([^"]*)" exists at ([-\d.]+), ([-\d.]+) with population (\d+)$`, s.placeExistsWithPopulation)
 		sc.Step(`^there are no places$`, s.noPlaces)
@@ -726,6 +727,7 @@ func (s *steps) insertSighting(ctx context.Context, w *World, author, name strin
 
 	w.vars["sighting."+name+".id"] = id
 	w.vars["user."+author+".id"] = authorID
+	w.vars["user."+author+".authId"] = authIDForUsername(author)
 	return nil
 }
 
@@ -790,6 +792,18 @@ func (s *steps) sightingHasNotes(ctx context.Context, name, notes, quickNote str
 	if _, err := s.env.db.ExecContext(ctx, `UPDATE sightings SET notes = $2, quick_note = $3 WHERE id = $1`,
 		id, notes, quickNote); err != nil {
 		return fmt.Errorf("set notes on sighting %q: %w", name, err)
+	}
+	return nil
+}
+
+// sightingHasMedia writes photo/recording paths directly.
+func (s *steps) sightingHasMedia(ctx context.Context, name, photoPath, recordingPath string) error {
+	w := worldFrom(ctx)
+	id := idForName(models.PrefixSighting, w.interpolate(name))
+	if _, err := s.env.db.ExecContext(ctx,
+		`UPDATE sightings SET photo_paths = ARRAY[$2]::text[], recording_paths = ARRAY[$3]::text[] WHERE id = $1`,
+		id, w.interpolate(photoPath), w.interpolate(recordingPath)); err != nil {
+		return fmt.Errorf("set media on sighting %q: %w", name, err)
 	}
 	return nil
 }

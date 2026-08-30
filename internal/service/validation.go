@@ -15,19 +15,23 @@ const (
 	maxNotesLen       = 5000
 	maxOffsetMinutes  = 840
 	maxPhotoPaths     = 10
+	maxRecordingPaths = 5
+	maxMediaPathLen   = 512
 	clockSkewGraceHrs = 24
 )
 
 var (
-	sightingIDPattern = regexp.MustCompile(`^sgh_[a-z0-9]{26}$`)
-	birdIDPattern     = regexp.MustCompile(`^brd_[a-z0-9]{26}$`)
-	photoFilePattern  = `[A-Za-z0-9._-]+\.(jpe?g|png|webp|heic)`
+	sightingIDPattern    = regexp.MustCompile(`^sgh_[a-z0-9]{26}$`)
+	birdIDPattern        = regexp.MustCompile(`^brd_[a-z0-9]{26}$`)
+	photoFilePattern     = `[A-Za-z0-9._-]+\.(jpe?g|png|webp|heic)`
+	recordingFilePattern = `[A-Za-z0-9._-]+\.(webm|ogg|m4a|mp4)`
 )
 
-// photoPathRegex validates that a photo path is prefixed with the caller's auth uid and the sighting's id.
-func photoPathRegex(authID, sightingID string) *regexp.Regexp {
+// mediaPathRegex validates that a media path is prefixed with the caller's
+// auth uid and the sighting's id, and ends with an allowed file pattern.
+func mediaPathRegex(authID, sightingID, filePattern string) *regexp.Regexp {
 	return regexp.MustCompile(
-		`^` + regexp.QuoteMeta(authID) + `/` + regexp.QuoteMeta(sightingID) + `/` + photoFilePattern + `$`,
+		`^` + regexp.QuoteMeta(authID) + `/` + regexp.QuoteMeta(sightingID) + `/` + filePattern + `$`,
 	)
 }
 

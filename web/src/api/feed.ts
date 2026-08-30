@@ -13,6 +13,8 @@ function toRow(item: FeedItem): FeedRow {
     authorName: item.authorName,
     observedAt: item.observedAt,
     placeName: item.placeName,
+    photoPaths: item.photoPaths,
+    recordingPaths: item.recordingPaths,
   };
 }
 
