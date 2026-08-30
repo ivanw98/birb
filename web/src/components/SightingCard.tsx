@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatObservedAt } from "../lib/time";
 import type { LocalSighting, SyncStatus } from "../types";
 import { PhotoThumb } from "./PhotoThumb";
+import { RecordingPlayer } from "./RecordingPlayer";
 
 const SYNC_LABEL: Record<SyncStatus, string> = {
   pending: "Pending sync",
@@ -71,6 +72,10 @@ export function SightingCard({
           {SYNC_LABEL[sighting.syncStatus]}
         </Badge>
       </div>
+
+      {sighting.recordingPaths.length > 0 && (
+        <RecordingPlayer path={sighting.recordingPaths[0]} label="Recording" />
+      )}
 
       {confirming ? (
         <div className="space-y-3">

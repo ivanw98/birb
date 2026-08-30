@@ -8,6 +8,8 @@ import { useGroups } from "@/hooks/useGroups";
 import { useOnline } from "@/hooks/useOnline";
 import { StatusBanner } from "./StatusBanner";
 import { GroupsView } from "./GroupsView";
+import { PhotoThumb } from "./PhotoThumb";
+import { RecordingPlayer } from "./RecordingPlayer";
 
 const STALE_AFTER_MS = 60 * 60 * 1000;
 
@@ -104,7 +106,20 @@ export function FeedView() {
               key={row.id}
               className="rounded-lg border border-slate-200 p-4 text-lg text-ink"
             >
-              {rowText(row, birdNames)}
+              <p>{rowText(row, birdNames)}</p>
+              {(row.photoPaths.length > 0 || row.recordingPaths.length > 0) && (
+                <div className="flex flex-wrap items-center gap-3">
+                  {row.photoPaths.length > 0 && (
+                    <PhotoThumb path={row.photoPaths[0]} />
+                  )}
+                  {row.recordingPaths.length > 0 && (
+                    <RecordingPlayer
+                      path={row.recordingPaths[0]}
+                      label="Recording"
+                    />
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

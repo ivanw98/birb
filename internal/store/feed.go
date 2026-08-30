@@ -20,7 +20,8 @@ var _ FeedRepository = (*FeedStore)(nil)
 
 const feedQuery = `
 WITH page AS (
-    SELECT s.id, s.user_id, s.bird_id, s.observed_at, s.latitude, s.longitude
+    SELECT s.id, s.user_id, s.bird_id, s.observed_at, s.latitude, s.longitude,
+           s.photo_paths, s.recording_paths
     FROM sightings AS s
     WHERE s.user_id = ANY($1::text[])
       AND s.observed_at > $2::timestamptz
@@ -30,11 +31,13 @@ WITH page AS (
     ORDER BY s.observed_at DESC, s.id DESC
     LIMIT $6
 )
-SELECT p.id          AS sighting_id,
+SELECT p.id                    AS sighting_id,
        p.bird_id,
-       u.display_name AS author_name,
+       u.display_name          AS author_name,
        p.observed_at,
-       pl.name        AS place_name
+       pl.name                 AS place_name,
+       p.photo_paths::text     AS photo_paths,
+       p.recording_paths::text AS recording_paths
 FROM page AS p
 JOIN users AS u ON u.id = p.user_id
 LEFT JOIN LATERAL (
@@ -54,20 +57,32 @@ ORDER BY p.observed_at DESC, p.id DESC
 
 // feedRow is the wire projection.
 type feedRow struct {
-	SightingID string    `db:"sighting_id"`
-	BirdID     *string   `db:"bird_id"`
-	AuthorName *string   `db:"author_name"`
-	ObservedAt time.Time `db:"observed_at"`
-	PlaceName  *string   `db:"place_name"`
+	SightingID     string      `db:"sighting_id"`
+	BirdID         *string     `db:"bird_id"`
+	AuthorName     *string     `db:"author_name"`
+	ObservedAt     time.Time   `db:"observed_at"`
+	PlaceName      *string     `db:"place_name"`
+	PhotoPaths     StringArray `db:"photo_paths"`
+	RecordingPaths StringArray `db:"recording_paths"`
 }
 
 func (r feedRow) toModel() models.FeedItem {
+	photoPaths := []string(r.PhotoPaths)
+	if photoPaths == nil {
+		photoPaths = []string{}
+	}
+	recordingPaths := []string(r.RecordingPaths)
+	if recordingPaths == nil {
+		recordingPaths = []string{}
+	}
 	return models.FeedItem{
-		SightingID: r.SightingID,
-		BirdID:     r.BirdID,
-		AuthorName: r.AuthorName,
-		ObservedAt: r.ObservedAt.UTC(),
-		PlaceName:  r.PlaceName,
+		SightingID:     r.SightingID,
+		BirdID:         r.BirdID,
+		AuthorName:     r.AuthorName,
+		ObservedAt:     r.ObservedAt.UTC(),
+		PlaceName:      r.PlaceName,
+		PhotoPaths:     photoPaths,
+		RecordingPaths: recordingPaths,
 	}
 }
 

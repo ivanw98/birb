@@ -11,6 +11,7 @@ export async function captureSighting(): Promise<LocalSighting> {
     observedAtOffsetMinutes: deviceOffsetMinutes(),
     clientUpdatedAt: observedAt,
     photoPaths: [],
+    recordingPaths: [],
     syncStatus: "pending",
   };
 

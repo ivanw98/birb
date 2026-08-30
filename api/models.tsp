@@ -30,6 +30,10 @@ scalar GroupId extends string;
 @maxLength(512)
 scalar PhotoPath extends string;
 
+@doc("Bucket-relative Supabase Storage object path for a sound recording. Max 512 chars.")
+@maxLength(512)
+scalar RecordingPath extends string;
+
 // Error envelope: returned by every operation.
 
 @doc("Machine-readable error.")
@@ -67,7 +71,7 @@ model Bird {
 
 // Sightings: capture fields (observedAt, observedAtOffsetMinutes, latitude,
 // longitude, accuracyM) are set on create and immutable thereafter. Content
-// fields (birdId, quickNote, notes, photoPaths) are mutable, arbitrated by
+// fields (birdId, quickNote, notes, photoPaths, recordingPaths) are mutable, arbitrated by
 // clientUpdatedAt (last-write-wins). No server-side `status` column:
 // pending/synced is purely client state.
 
@@ -122,6 +126,10 @@ model Sighting {
   @doc("Content field. Storage paths of attached photos. Max 10.")
   @maxItems(10)
   photoPaths: PhotoPath[];
+
+  @doc("Content field. Storage paths of attached sound recordings. Max 5.")
+  @maxItems(5)
+  recordingPaths: RecordingPath[];
 
   @doc("`true` only on tombstones, returned only when `includeDeleted=true`.")
   deleted?: boolean;
@@ -227,6 +235,10 @@ model SightingUpdate {
   @doc("Full set of photo paths after this update. Each must belong to the caller. Max 10.")
   @maxItems(10)
   photoPaths: PhotoPath[];
+
+  @doc("Full set of recording paths after this update. Each must belong to the caller. Max 5.")
+  @maxItems(5)
+  recordingPaths: RecordingPath[];
 }
 
 // Pagination: keyset over (observedAt DESC, id DESC).
@@ -311,6 +323,14 @@ model FeedItem {
   @doc("Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km.")
   @maxLength(200)
   placeName?: string;
+
+  @doc("Storage paths of attached photos. Max 10.")
+  @maxItems(10)
+  photoPaths: PhotoPath[];
+
+  @doc("Storage paths of attached sound recordings. Max 5.")
+  @maxItems(5)
+  recordingPaths: RecordingPath[];
 }
 
 @doc("A page of co-members' sightings from the last 7 days, newest first.")

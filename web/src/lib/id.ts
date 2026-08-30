@@ -9,3 +9,7 @@ export function newSightingID(): string {
 export function newPhotoFileName(): string {
   return `${ulid().toLowerCase()}.jpg`;
 }
+
+export function newRecordingFileName(extension: string): string {
+  return `${ulid().toLowerCase()}.${extension}`;
+}

@@ -44,7 +44,7 @@ type Bird struct {
 	TaxonomicOrder *int32  `db:"taxonomic_order" json:"taxonomicOrder,omitempty"`
 }
 
-// Sighting is the stored/returned sighting; UserID is internal and never serialized, capture fields (ObservedAt, ObservedAtOffsetMinutes, Latitude, Longitude, AccuracyM) are immutable after creation, and content fields (BirdID, QuickNote, Notes, PhotoPaths) are mutable and arbitrated by ClientUpdatedAt.
+// Sighting is the stored/returned sighting; UserID is internal and never serialized.
 type Sighting struct {
 	ID                      string    `db:"id" json:"id"`
 	UserID                  string    `db:"user_id" json:"-"`
@@ -60,6 +60,7 @@ type Sighting struct {
 	Longitude               *float64  `db:"longitude" json:"longitude,omitempty"`
 	AccuracyM               *float64  `db:"accuracy_m" json:"accuracyM,omitempty"`
 	PhotoPaths              []string  `db:"photo_paths" json:"photoPaths"`
+	RecordingPaths          []string  `db:"recording_paths" json:"recordingPaths"`
 	// Deleted mirrors deleted_at; on the wire it appears only on tombstones,
 	// which only includeDeleted listings return.
 	Deleted bool `json:"deleted,omitempty"`
@@ -115,6 +116,7 @@ type SightingUpdate struct {
 	QuickNote       *string   `json:"quickNote,omitempty"`
 	Notes           *string   `json:"notes,omitempty"`
 	PhotoPaths      []string  `json:"photoPaths"`
+	RecordingPaths  []string  `json:"recordingPaths"`
 }
 
 // SightingPage is the GET /api/sightings response, with NextCursor serialized as an explicit null (pointer, no omitempty) on the last page.
@@ -141,11 +143,13 @@ type Group struct {
 
 // FeedItem is a single feed item, as exposed to the caller.
 type FeedItem struct {
-	SightingID string    `json:"sightingId"`
-	BirdID     *string   `json:"birdId,omitempty"`
-	AuthorName *string   `json:"authorName,omitempty"`
-	ObservedAt time.Time `json:"observedAt"`
-	PlaceName  *string   `json:"placeName,omitempty"`
+	SightingID     string    `json:"sightingId"`
+	BirdID         *string   `json:"birdId,omitempty"`
+	AuthorName     *string   `json:"authorName,omitempty"`
+	ObservedAt     time.Time `json:"observedAt"`
+	PlaceName      *string   `json:"placeName,omitempty"`
+	PhotoPaths     []string  `json:"photoPaths"`
+	RecordingPaths []string  `json:"recordingPaths"`
 }
 
 // FeedPage is a page of feed items, as exposed to the caller.

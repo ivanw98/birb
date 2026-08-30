@@ -280,6 +280,10 @@ export interface components {
             observedAt: string;
             /** @description Nearest settlement. Omitted when the sighting has no coordinates or nothing lies within 30 km. */
             placeName?: string;
+            /** @description Storage paths of attached photos. Max 10. */
+            photoPaths: components["schemas"]["PhotoPath"][];
+            /** @description Storage paths of attached sound recordings. Max 5. */
+            recordingPaths: components["schemas"]["RecordingPath"][];
         };
         /** @description A page of co-members' sightings from the last 7 days, newest first. */
         FeedPage: {
@@ -332,6 +336,8 @@ export interface components {
         };
         /** @description Bucket-relative Supabase Storage object path for a photo. Max 512 chars. */
         PhotoPath: string;
+        /** @description Bucket-relative Supabase Storage object path for a sound recording. Max 512 chars. */
+        RecordingPath: string;
         /** @description A recorded bird sighting. Optional fields are omitted from JSON when unset. */
         Sighting: {
             id: components["schemas"]["SightingId"];
@@ -383,6 +389,8 @@ export interface components {
             accuracyM?: number;
             /** @description Content field. Storage paths of attached photos. Max 10. */
             photoPaths: components["schemas"]["PhotoPath"][];
+            /** @description Content field. Storage paths of attached sound recordings. Max 5. */
+            recordingPaths: components["schemas"]["RecordingPath"][];
             /** @description `true` only on tombstones, returned only when `includeDeleted=true`. */
             deleted?: boolean;
         };
@@ -465,6 +473,8 @@ export interface components {
             notes?: string;
             /** @description Full set of photo paths after this update. Each must belong to the caller. Max 10. */
             photoPaths: components["schemas"]["PhotoPath"][];
+            /** @description Full set of recording paths after this update. Each must belong to the caller. Max 5. */
+            recordingPaths: components["schemas"]["RecordingPath"][];
         };
         /** @description Returned by PUT /api/sightings/{id} when clientUpdatedAt is older than stored. Body is the current server state for reconciliation. */
         StaleUpdate: {

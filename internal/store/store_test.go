@@ -31,13 +31,13 @@ func sightingCols() []string {
 	return []string{
 		"id", "user_id", "observed_at", "observed_at_offset_minutes", "client_updated_at",
 		"created_at", "updated_at", "bird_id", "quick_note", "notes", "latitude", "longitude",
-		"accuracy_m", "photo_paths", "deleted_at",
+		"accuracy_m", "photo_paths", "recording_paths", "deleted_at",
 	}
 }
 
 func sightingRowValues(id, userID string, ts time.Time) []driver.Value {
 	return []driver.Value{
-		id, userID, ts, int32(60), ts, ts, ts, nil, ptr("note"), nil, nil, nil, nil, "{}", nil,
+		id, userID, ts, int32(60), ts, ts, ts, nil, ptr("note"), nil, nil, nil, nil, "{}", "{}", nil,
 	}
 }
 
@@ -297,6 +297,23 @@ func TestUpdateContentApplied(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, applied)
 	assert.Equal(t, "sgh_1", got.ID)
+}
+
+func TestUpdateContentRecordingPathsRoundTrip(t *testing.T) {
+	db, mock := newMock(t)
+	s := NewSightingStore(db)
+	now := time.Now().UTC()
+	rows := sightingRowValues("sgh_1", "usr_1", now)
+	rows[14] = "{uid/sgh_1/a.webm}" // recording_paths
+	mock.ExpectQuery(`UPDATE sightings`).
+		WillReturnRows(sqlmock.NewRows(sightingCols()).AddRow(rows...))
+
+	got, applied, err := s.UpdateContent(context.Background(), "sgh_1", "usr_1", models.SightingUpdate{
+		ClientUpdatedAt: now, RecordingPaths: []string{"uid/sgh_1/a.webm"},
+	})
+	require.NoError(t, err)
+	assert.True(t, applied)
+	assert.Equal(t, []string{"uid/sgh_1/a.webm"}, got.RecordingPaths)
 }
 
 func TestUpdateContentNotAppliedWhenNoRow(t *testing.T) {

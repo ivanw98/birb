@@ -34,13 +34,12 @@ export type RemovePhotoResult =
   | { outcome: "gone" } // deleted on another device
   | { outcome: "error"; message: string };
 
-// Removing a QUEUED photo is a local delete: nothing on the server knows it
-// exists, so this works offline and can't conflict.
-//
-// Removing an ATTACHED photo needs the network. photoPaths can only change via
-// PUT: toWire() deliberately omits photoPaths because the batch endpoint
-// rejects them, so a removal written locally and marked pending would never
-// reach the server. Rather than lose it silently, say we can't do it yet.
+// A recording can be in one of two places, same shape as PhotoTarget.
+export type RecordingTarget =
+  { kind: "queued"; id: number } | { kind: "attached"; path: string };
+
+// Queued photos are deleted locally. Attached photos require an online PUT request
+// because photo modifications are not supported in offline batch syncs.
 export async function removePhoto(
   row: LocalSighting,
   target: PhotoTarget,
@@ -70,6 +69,7 @@ export async function removePhoto(
           quickNote: row.quickNote,
           notes: row.notes,
           photoPaths,
+          recordingPaths: row.recordingPaths,
         },
       },
     );
@@ -91,6 +91,58 @@ export async function removePhoto(
     return { outcome: "error", message: `remove failed: ${response.status}` };
   } catch {
     // navigator.onLine lied: we never reached the server, so nothing changed.
+    return { outcome: "offline" };
+  }
+}
+
+export async function removeRecording(
+  row: LocalSighting,
+  target: RecordingTarget,
+): Promise<RemovePhotoResult> {
+  if (target.kind === "queued") {
+    await db.recordings.delete(target.id);
+    return { outcome: "removed" };
+  }
+
+  if (!navigator.onLine || row.syncStatus !== "synced") {
+    return { outcome: "offline" };
+  }
+
+  const clientUpdatedAt = bumpClientUpdatedAt(row.clientUpdatedAt);
+  const recordingPaths = row.recordingPaths.filter((p) => p !== target.path);
+
+  try {
+    const { data, error, response } = await apiClient.PUT(
+      "/api/sightings/{id}",
+      {
+        params: { path: { id: row.id } },
+        body: {
+          clientUpdatedAt,
+          birdId: row.birdId,
+          quickNote: row.quickNote,
+          notes: row.notes,
+          photoPaths: row.photoPaths,
+          recordingPaths,
+        },
+      },
+    );
+
+    if (data) {
+      await db.sightings.put(fromWire(data));
+      await deleteLocalRecordingForPath(target.path);
+      return { outcome: "removed" };
+    }
+    if (response.status === 409) {
+      const stale = error as StaleUpdate;
+      await db.sightings.put(fromWire(stale.current));
+      return { outcome: "conflict" };
+    }
+    if (response.status === 404) {
+      await adoptRemoteDeletion(row.id);
+      return { outcome: "gone" };
+    }
+    return { outcome: "error", message: `remove failed: ${response.status}` };
+  } catch {
     return { outcome: "offline" };
   }
 }
@@ -156,6 +208,16 @@ async function deleteLocalPhotoForPath(path: string): Promise<void> {
     .delete();
 }
 
+async function deleteLocalRecordingForPath(path: string): Promise<void> {
+  const [, sightingId, fileName] = path.split("/");
+  if (!sightingId || !fileName) return;
+
+  await db.recordings
+    .where("sightingId")
+    .equals(sightingId)
+    .and((r) => r.fileName === fileName)
+    .delete();
+}
 // One save path for the enrichment form.
 export async function saveEnrichment(
   row: LocalSighting,
@@ -180,7 +242,12 @@ export async function saveEnrichment(
   }
 
   try {
-    const body = { clientUpdatedAt, ...content, photoPaths: row.photoPaths };
+    const body = {
+      clientUpdatedAt,
+      ...content,
+      photoPaths: row.photoPaths,
+      recordingPaths: row.recordingPaths,
+    };
     const { data, error, response } = await apiClient.PUT(
       "/api/sightings/{id}",
       {

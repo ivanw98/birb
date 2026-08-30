@@ -30,10 +30,11 @@ func NewSightingStore(db *sqlx.DB) *SightingStore {
 	rawCols := getColumns(sightingRow{})
 	selectCols := make([]string, len(rawCols))
 
-	// photo_paths needs an explicit ::text cast (see sightingRow).
+	// photo_paths and recording_paths need an explicit ::text cast (see sightingRow).
+	arrayCols := map[string]bool{"photo_paths": true, "recording_paths": true}
 	for i, col := range rawCols {
-		if col == "photo_paths" {
-			selectCols[i] = "photo_paths::text AS photo_paths"
+		if arrayCols[col] {
+			selectCols[i] = col + "::text AS " + col
 		} else {
 			selectCols[i] = col
 		}
@@ -46,7 +47,7 @@ func NewSightingStore(db *sqlx.DB) *SightingStore {
 	}
 }
 
-// sightingRow scans a sightings row, reading photo_paths via a ::text cast into StringArray (see arrays.go).
+// sightingRow scans a sightings row, reading photo_paths/recording_paths via a ::text cast into StringArray (see arrays.go).
 type sightingRow struct {
 	ID                      string      `db:"id"`
 	UserID                  string      `db:"user_id"`
@@ -62,6 +63,7 @@ type sightingRow struct {
 	Longitude               *float64    `db:"longitude"`
 	AccuracyM               *float64    `db:"accuracy_m"`
 	PhotoPaths              StringArray `db:"photo_paths"`
+	RecordingPaths          StringArray `db:"recording_paths"`
 	DeletedAt               *time.Time  `db:"deleted_at"`
 }
 
@@ -69,6 +71,10 @@ func (r sightingRow) toModel() models.Sighting {
 	paths := []string(r.PhotoPaths)
 	if paths == nil {
 		paths = []string{}
+	}
+	recordingPaths := []string(r.RecordingPaths)
+	if recordingPaths == nil {
+		recordingPaths = []string{}
 	}
 	return models.Sighting{
 		ID:                      r.ID,
@@ -85,6 +91,7 @@ func (r sightingRow) toModel() models.Sighting {
 		Longitude:               r.Longitude,
 		AccuracyM:               r.AccuracyM,
 		PhotoPaths:              paths,
+		RecordingPaths:          recordingPaths,
 		Deleted:                 r.DeletedAt != nil,
 	}
 }
@@ -99,7 +106,7 @@ func (s *SightingStore) Upsert(ctx context.Context, in models.Sighting) (UpsertO
 		deletedAt = &now
 	}
 
-	// Insert columns are hardcoded (not derived via getColumns) since Upsert intentionally writes only a subset of fields, excluding photo_paths and timestamps.
+	// Insert columns are hardcoded (not derived via getColumns) since Upsert intentionally writes only a subset of fields, excluding photo_paths, recording_paths and timestamps.
 	query, args, err := builder.
 		Insert(sightingsTable).
 		SetMap(map[string]interface{}{
@@ -234,6 +241,7 @@ func (s *SightingStore) UpdateContent(ctx context.Context, id, userID string, up
 			"quick_note":        upd.QuickNote,
 			"notes":             upd.Notes,
 			"photo_paths":       sq.Expr("?::text[]", StringArray(upd.PhotoPaths)),
+			"recording_paths":   sq.Expr("?::text[]", StringArray(upd.RecordingPaths)),
 			"client_updated_at": upd.ClientUpdatedAt,
 			"updated_at":        sq.Expr("now()"),
 		}).

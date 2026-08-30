@@ -6,6 +6,7 @@ import { refreshFeed } from "@/api/feed";
 import { getAccessToken } from "@/auth/tokenProvider";
 import { photoStore } from "@/photos";
 import { bumpClientUpdatedAt } from "@/lib/time";
+import { recordingStore } from "@/recordings";
 
 type SightingSync = components["schemas"]["SightingSync"];
 type BatchItemResult = components["schemas"]["BatchItemResult"];
@@ -79,6 +80,7 @@ export function fromWire(remote: Sighting): LocalSighting {
     longitude: remote.longitude,
     accuracyM: remote.accuracyM,
     photoPaths: remote.photoPaths,
+    recordingPaths: remote.recordingPaths,
     deleted: remote.deleted ? 1 : 0,
     // fromWire always sets syncStatus: "synced" – anything from the server doesn't need pushing.
     syncStatus: "synced",
@@ -304,7 +306,9 @@ async function runSyncPass(): Promise<SyncResult> {
     if (!token) return finish({ ok: false, reason: "no-auth" });
 
     const { pushed, failed } = await pushPending();
+    // Neither function coordinates with the other
     await syncPhotos();
+    await syncRecordings();
     await pullFromServer();
 
     try {
@@ -350,26 +354,65 @@ async function syncPhotos(): Promise<void> {
       newPaths.push(path);
     }
 
-    await attachPhotoPaths(row, newPaths);
+    await attachMediaPaths(row, newPaths, []);
+  }
+}
+
+// ---------- recordings -----------------------------------------------------------
+
+async function syncRecordings(): Promise<void> {
+  const q = await db.recordings.where("uploaded").equals(0).toArray();
+  if (q.length === 0) return;
+
+  const bySighting = Map.groupBy(q, (p) => p.sightingId);
+  for (const [sightingId, recordings] of bySighting) {
+    const row = await db.sightings.get(sightingId);
+    // parent sighting record doesn't exist in the local database yet
+    // (or hasn't finished syncing from the server). Deleted rows keep their
+    // queued blobs unuploaded in case of Undo.
+    if (!row || row.syncStatus !== "synced" || row.deleted) continue;
+
+    const newPaths: string[] = [];
+    for (const r of recordings) {
+      const path = await recordingStore.upload(
+        sightingId,
+        r.fileName,
+        r.blob,
+        r.mimeType,
+      );
+      await db.recordings.update(r.id!, { uploaded: 1 });
+      newPaths.push(path);
+    }
+
+    await attachMediaPaths(row, [], newPaths);
   }
 }
 
 // PUT the full desired content state with the new paths merged in.
-async function attachPhotoPaths(
+async function attachMediaPaths(
   row: LocalSighting,
-  newPaths: string[],
+  newPhotoPaths: string[],
+  newRecordingPaths: string[],
   retry = true,
 ): Promise<void> {
-  const desiredSet = new Set([...row.photoPaths, ...newPaths]);
   // Contract: openapi/openapi.yaml, maxItems: 10 on both Sighting.photoPaths and the PUT body
-  const desiredSlice = [...desiredSet].slice(0, 10);
+  // maxItems: 5 on both Sighting.recordingPaths and the PUT body
+  const photoPaths = [...new Set([...row.photoPaths, ...newPhotoPaths])].slice(
+    0,
+    10,
+  );
+
+  const recordingPaths = [
+    ...new Set([...row.recordingPaths, ...newRecordingPaths]),
+  ].slice(0, 5);
 
   const body = {
     clientUpdatedAt: bumpClientUpdatedAt(row.clientUpdatedAt),
     birdId: row.birdId,
     quickNote: row.quickNote,
     notes: row.notes,
-    photoPaths: desiredSlice,
+    photoPaths,
+    recordingPaths,
   };
   const { data, error, response } = await apiClient.PUT("/api/sightings/{id}", {
     params: { path: { id: row.id } },
@@ -386,7 +429,7 @@ async function attachPhotoPaths(
     const adopted = fromWire(stale.current);
     await db.sightings.put(adopted);
     // grab the conflicted state (old) to attach photos to
-    await attachPhotoPaths(adopted, newPaths, false);
+    await attachMediaPaths(adopted, newPhotoPaths, newRecordingPaths, false);
     return;
   }
 
@@ -394,8 +437,9 @@ async function attachPhotoPaths(
     // Tombstoned on another device (PUT filters tombstones). Drop the queue
     // for it rather than failing the whole pass; the pull confirms the delete.
     await db.photos.where("sightingId").equals(row.id).delete();
+    await db.recordings.where("sightingId").equals(row.id).delete();
     return;
   }
 
-  throw new Error(`attaching photo paths failed: ${response.status}`);
+  throw new Error(`attaching media paths failed: ${response.status}`);
 }

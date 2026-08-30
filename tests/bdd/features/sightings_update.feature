@@ -239,3 +239,124 @@ Feature: Updating a sighting (PUT /api/sightings/{id})
       """
     Then I should receive a 400 JSON response
     And the response field "code" should be "validation_failed"
+
+  Scenario: Recording paths owned by the caller round-trip through Postgres text[]
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_rec1auerahz6v1epimvcne8vgl",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    When I make a PUT call to /api/sightings/sgh_rec1auerahz6v1epimvcne8vgl with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "photoPaths": [],
+        "recordingPaths": ["{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/a.webm", "{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/b.m4a"]
+      }
+      """
+    Then I should receive a 200 JSON response
+    And the response field "recordingPaths.0" should be "{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/a.webm"
+    And the response field "recordingPaths.1" should be "{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/b.m4a"
+
+    When I make a GET call to /api/sightings
+    Then I should receive a 200 JSON response
+    And the response field "items.0.recordingPaths.0" should be "{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/a.webm"
+    And the response field "items.0.recordingPaths.1" should be "{{ current_user.auth_id }}/sgh_rec1auerahz6v1epimvcne8vgl/b.m4a"
+
+  Scenario: A recording path not owned by the caller is rejected
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_rec2auerahz6v1epimvcne8vgl",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    When I make a PUT call to /api/sightings/sgh_rec2auerahz6v1epimvcne8vgl with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "photoPaths": [],
+        "recordingPaths": ["someone-elses-uid/sgh_rec2auerahz6v1epimvcne8vgl/a.webm"]
+      }
+      """
+    Then I should receive a 400 JSON response
+    And the response field "code" should be "invalid_recording_path"
+
+  Scenario: A recording path with a codec MediaRecorder never produces is rejected
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_rec3auerahz6v1epimvcne8vgl",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    When I make a PUT call to /api/sightings/sgh_rec3auerahz6v1epimvcne8vgl with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "photoPaths": [],
+        "recordingPaths": ["{{ current_user.auth_id }}/sgh_rec3auerahz6v1epimvcne8vgl/a.mp3"]
+      }
+      """
+    Then I should receive a 400 JSON response
+    And the response field "code" should be "invalid_recording_path"
+
+  Scenario: More than five recording paths is rejected
+    When I make a POST call to /api/sightings/batch with body
+      """
+      {
+        "sightings": [
+          {
+            "id": "sgh_rec4auerahz6v1epimvcne8vgl",
+            "observedAt": "2025-06-01T10:00:00Z",
+            "observedAtOffsetMinutes": 0,
+            "clientUpdatedAt": "2025-06-01T10:00:00Z"
+          }
+        ]
+      }
+      """
+    Then the response field "results.0.status" should be "created"
+
+    When I make a PUT call to /api/sightings/sgh_rec4auerahz6v1epimvcne8vgl with body
+      """
+      {
+        "clientUpdatedAt": "2025-06-01T12:00:00Z",
+        "photoPaths": [],
+        "recordingPaths": [
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/a.webm",
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/b.webm",
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/c.webm",
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/d.webm",
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/e.webm",
+          "{{ current_user.auth_id }}/sgh_rec4auerahz6v1epimvcne8vgl/f.webm"
+        ]
+      }
+      """
+    Then I should receive a 400 JSON response
+    And the response field "code" should be "validation_failed"
