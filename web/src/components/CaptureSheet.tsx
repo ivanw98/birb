@@ -21,18 +21,17 @@ export interface CaptureSheetProps {
 
 export function CaptureSheet({ sightingId, open, onClose }: CaptureSheetProps) {
   const row = useLiveQuery(() => db.sightings.get(sightingId), [sightingId]);
-  const queuedRecordings =
-    useLiveQuery(
-      () =>
-        db.recordings
-          .where("sightingId")
-          .equals(sightingId)
-          .and((r) => r.uploaded === 0)
-          .toArray(),
-      [sightingId],
-    ) ?? [];
+  const queuedRecordings = useLiveQuery(
+    () =>
+      db.recordings
+        .where("sightingId")
+        .equals(sightingId)
+        .and((r) => r.uploaded === 0)
+        .toArray(),
+    [sightingId],
+  );
 
-  if (!row || row.deleted) return null;
+  if (!row || row.deleted || queuedRecordings === undefined) return null;
 
   const remaining =
     MAX_RECORDINGS - (row.recordingPaths.length + queuedRecordings.length);
