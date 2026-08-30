@@ -149,27 +149,30 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
         ? { kind: "attached", path: item.path }
         : { kind: "queued", id: item.id };
 
-    const result = await removePhoto(row, target);
-    setRemovingKey(null);
+    try {
+      const result = await removePhoto(row, target);
 
-    if (result.outcome === "removed") return;
-    if (result.outcome === "offline") {
-      setBanner(
-        "Removing a photo that's already uploaded needs a connection. Try again once you're back online.",
-      );
-      return;
+      if (result.outcome === "removed") return;
+      if (result.outcome === "offline") {
+        setBanner(
+          "Removing a photo that's already uploaded needs a connection. Try again once you're back online.",
+        );
+        return;
+      }
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest. Check the photos and try again if it's still there.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setRemovingKey(null);
     }
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest. Check the photos and try again if it's still there.",
-      );
-      return;
-    }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -189,31 +192,34 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
     // design, so the user's text would be the loser of a conflict they caused
     // themselves. Wait the pass out, then re-read: `row` was captured at render
     // and its clientUpdatedAt/photoPaths may both be a version behind.
-    await syncSettled();
-    const fresh = (await db.sightings.get(row.id)) ?? row;
+    try {
+      await syncSettled();
+      const fresh = (await db.sightings.get(row.id)) ?? row;
 
-    const result = await saveEnrichment(fresh, content);
-    setSaving(false);
+      const result = await saveEnrichment(fresh, content);
 
-    if (
-      result.outcome === "saved-offline" ||
-      result.outcome === "saved-online"
-    ) {
-      onClose();
-      return;
-    }
+      if (
+        result.outcome === "saved-offline" ||
+        result.outcome === "saved-online"
+      ) {
+        onClose();
+        return;
+      }
 
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest; your text is still in the form.",
-      );
-      return;
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest; your text is still in the form.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setSaving(false);
     }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
   const queuedRecordings = useLiveQuery(
@@ -252,27 +258,30 @@ function EnrichForm({ row, onClose, onDeleted }: EnrichFormProps) {
         ? { kind: "attached", path: item.path }
         : { kind: "queued", id: item.id };
 
-    const result = await removeRecording(row, target);
-    setRemovingKey(null);
+    try {
+      const result = await removeRecording(row, target);
 
-    if (result.outcome === "removed") return;
-    if (result.outcome === "offline") {
-      setBanner(
-        "Removing a recording that's already uploaded needs a connection. Try again once you're back online.",
-      );
-      return;
+      if (result.outcome === "removed") return;
+      if (result.outcome === "offline") {
+        setBanner(
+          "Removing a recording that's already uploaded needs a connection. Try again once you're back online.",
+        );
+        return;
+      }
+      if (result.outcome === "conflict") {
+        setBanner(
+          "Updated elsewhere: showing the latest. Check the recordings and try again if it's still there.",
+        );
+        return;
+      }
+      if (result.outcome === "gone") {
+        onDeleted(row.id, true);
+        return;
+      }
+      setBanner(result.message);
+    } finally {
+      setRemovingKey(null);
     }
-    if (result.outcome === "conflict") {
-      setBanner(
-        "Updated elsewhere: showing the latest. Check the recordings and try again if it's still there.",
-      );
-      return;
-    }
-    if (result.outcome === "gone") {
-      onDeleted(row.id, true);
-      return;
-    }
-    setBanner(result.message);
   };
 
   return (
